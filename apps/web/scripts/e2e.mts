@@ -8,16 +8,17 @@ import { hashPin } from "../src/lib/pin.ts";
 import { generatePairingCode, pairingExpiry } from "../src/lib/pairing.ts";
 
 const sql = neon(process.env.DATABASE_URL!);
+const RUN_IP = `e2e-${Date.now()}`; // fresh client IP per run so rate-limit state never carries over
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 let failed = 0;
 const check = (name: string, ok: boolean, extra?: unknown) => {
   console.log(`${ok ? "PASS" : "FAIL"} ${name}`, ok ? "" : JSON.stringify(extra));
   if (!ok) failed++;
 };
-const call = async (path: string, token: string | null, body?: unknown) => {
+const call = async (path: string, token: string | null, body?: unknown, ip = RUN_IP) => {
   const res = await fetch(BASE + path, {
     method: body ? "POST" : "GET",
-    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    headers: { "content-type": "application/json", "x-real-ip": ip, ...(token ? { authorization: `Bearer ${token}` } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   return { status: res.status, json: (await res.json().catch(() => ({}))) as any };
@@ -101,7 +102,15 @@ try {
   for (let i = 0; i < 5; i++) await call("/api/kid/unlock", token, { pin: "9999" });
   const locked = await call("/api/kid/unlock", token, { pin: "1234" });
   check("locked after 5 wrong tries", locked.status === 429, locked);
+
+  // rate limit: 10 pairing attempts per IP per 15 minutes
+  const noisyIp = `${RUN_IP}-noisy`;
+  const codes: number[] = [];
+  for (let i = 0; i < 11; i++) codes.push((await call("/api/device/pair", null, { code: "ZZZZZZZZ" }, noisyIp)).status);
+  check("10 pair attempts allowed, 11th is 429", codes.slice(0, 10).every((c) => c === 404) && codes[10] === 429, codes);
+  check("other IPs unaffected", (await call("/api/device/pair", null, { code: "ZZZZZZZZ" }, `${RUN_IP}-other`)).status === 404);
 } finally {
+  await sql`delete from rate_limits where key like ${"pair:" + RUN_IP + "%"}`;
   await sql`delete from parents where id = ${parent.id}`;
   console.log("cleaned up");
 }

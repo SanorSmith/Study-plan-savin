@@ -118,3 +118,10 @@ export const screenSessions = pgTable("screen_sessions", {
   startedAt: timestamp("started_at").notNull().defaultNow(),
   endsAt: timestamp("ends_at").notNull(),
 });
+
+// Fixed-window request counters, keyed like "pair:<ip>".
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  windowStart: timestamp("window_start").notNull().defaultNow(),
+  count: integer("count").notNull().default(0),
+});
