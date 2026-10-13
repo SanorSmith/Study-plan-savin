@@ -7,7 +7,8 @@ import { devices, kids } from "@/db/schema";
 import { requireParent } from "@/lib/auth";
 import { isPairingValid } from "@/lib/pairing";
 import { KidFields } from "../KidFields";
-import { createPairingCode, updateKid } from "../actions";
+import { recentActivity } from "@/lib/results";
+import { createPairingCode, giveBonus, updateKid } from "../actions";
 
 async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,6 +26,7 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
     .where(eq(devices.kidId, kid.id))
     .orderBy(desc(devices.createdAt));
   const now = new Date();
+  const activity = await recentActivity(kid.id);
 
   return (
     <main className="mx-auto max-w-md space-y-10 p-6">
@@ -42,6 +44,52 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
         <Link href={`/kids/${kid.id}/homework`} className="rounded border px-4 py-2">
           Homework and results
         </Link>
+      </section>
+      <section>
+        <h2 className="mb-1 text-xl font-semibold">Bonus screen time</h2>
+        <p className="mb-3 text-sm text-gray-600">
+          Give {kid.name} minutes without any homework. Bonus minutes don&apos;t count toward the daily limit.
+        </p>
+        <form action={giveBonus.bind(null, kid.id)} className="space-y-3">
+          <div className="flex items-center gap-2">
+            <input
+              name="minutes"
+              type="number"
+              min={1}
+              max={240}
+              defaultValue={15}
+              required
+              className="w-24 rounded border p-2"
+            />
+            <span>minutes</span>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input name="startNow" type="checkbox" />
+            Start screen time now (otherwise the minutes go into {kid.name}&apos;s bank)
+          </label>
+          <button className="rounded bg-black px-4 py-2 text-white">Give bonus</button>
+        </form>
+        {activity.length > 0 && (
+          <ul className="mt-4 space-y-1 text-sm">
+            {activity.map((a) => (
+              <li key={a.id} className="flex justify-between text-gray-700">
+                <span>
+                  {a.reason === "bonus"
+                    ? "Bonus from parent"
+                    : a.reason === "correct_answer"
+                      ? "Earned from homework"
+                      : a.reason === "spend"
+                        ? "Used as screen time"
+                        : "Adjustment"}
+                </span>
+                <span className={a.deltaMinutes > 0 ? "text-green-700" : "text-gray-600"}>
+                  {a.deltaMinutes > 0 ? "+" : ""}
+                  {a.deltaMinutes} min
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
       <section>
         <h2 className="mb-3 text-xl font-semibold">Devices</h2>

@@ -92,3 +92,20 @@ export async function homeworkResults(kidId: string): Promise<SetResult[]> {
     };
   });
 }
+
+export type ActivityEntry = { id: string; deltaMinutes: number; reason: string; createdAt: Date };
+
+/** The kid's latest time-bank movements: earned, bonus and spent minutes. */
+export async function recentActivity(kidId: string, limit = 10): Promise<ActivityEntry[]> {
+  return getDb()
+    .select({
+      id: creditLedger.id,
+      deltaMinutes: creditLedger.deltaMinutes,
+      reason: creditLedger.reason,
+      createdAt: creditLedger.createdAt,
+    })
+    .from(creditLedger)
+    .where(eq(creditLedger.kidId, kidId))
+    .orderBy(desc(creditLedger.createdAt))
+    .limit(limit);
+}
