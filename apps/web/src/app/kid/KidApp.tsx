@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { btn, Card, field, labelText } from "@/components/ui";
+import { activeWindow, type ScheduleRule } from "@/lib/schedule";
 
 type Question = {
   id: string;
@@ -10,14 +12,16 @@ type Question = {
   subject: string;
 };
 type State = {
+  serverNow: string;
   name: string;
   balanceMinutes: number;
   minutesPerQuestion: number;
   earnableTodayMinutes: number;
-  session: { endsAt: string } | null;
   question: Question | null;
+  schedule: { timezone: string; rules: ScheduleRule[] };
 };
 type View = "loading" | "pair" | "pin" | "home";
+type Feedback = { text: string; tone: "good" | "info" | "bad" };
 
 async function post(url: string, body: unknown) {
   const res = await fetch(url, {
@@ -28,15 +32,21 @@ async function post(url: string, body: unknown) {
   return { ok: res.ok, status: res.status, json: await res.json().catch(() => ({})) };
 }
 
+const minuteLabel = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
 export function KidApp() {
   const [view, setView] = useState<View>("loading");
   const [state, setState] = useState<State | null>(null);
+  // Server time minus this device's clock, so the schedule follows the server even if the device clock is wrong.
+  const [clockOffset, setClockOffset] = useState(0);
 
   const refresh = useCallback(async () => {
     const res = await fetch("/api/kid/state", { cache: "no-store" });
     if (res.status === 401) return setView("pair");
     if (res.status === 403) return setView("pin");
-    setState(await res.json());
+    const next: State = await res.json();
+    setClockOffset(Date.parse(next.serverNow) - Date.now());
+    setState(next);
     setView("home");
   }, []);
 
@@ -45,125 +55,149 @@ export function KidApp() {
     void refresh();
   }, [refresh]);
 
-  if (view === "loading") return <p className="p-6">Loading…</p>;
-  if (view === "pair") return <CodeForm label="Pairing code" onDone={refresh} kind="pair" />;
-  if (view === "pin") return <CodeForm label="Your PIN" onDone={refresh} kind="pin" />;
-  return state && <Home state={state} refresh={refresh} />;
+  return (
+    <main className="mx-auto min-h-screen max-w-md px-4 py-8">
+      {view === "loading" && (
+        <p role="status" className="text-sm text-slate-500">
+          Loading…
+        </p>
+      )}
+      {view === "pair" && <CodeForm kind="pair" onDone={refresh} />}
+      {view === "pin" && <CodeForm kind="pin" onDone={refresh} />}
+      {view === "home" && state && <Home state={state} clockOffset={clockOffset} refresh={refresh} />}
+    </main>
+  );
 }
 
-function CodeForm({ label, kind, onDone }: { label: string; kind: "pair" | "pin"; onDone: () => void }) {
+function CodeForm({ kind, onDone }: { kind: "pair" | "pin"; onDone: () => void }) {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const r =
-      kind === "pair"
-        ? await post("/api/device/pair", { code: value })
-        : await post("/api/kid/unlock", { pin: value });
+    setBusy(true);
+    const r = kind === "pair" ? await post("/api/device/pair", { code: value }) : await post("/api/kid/unlock", { pin: value });
+    setBusy(false);
     if (r.ok) return onDone();
     setError(r.json.error ?? "Something went wrong");
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto max-w-xs space-y-4 p-6">
-      <h1 className="text-2xl font-semibold">{kind === "pair" ? "Connect this device" : "Hi!"}</h1>
-      <label className="block">
-        <span className="mb-1 block text-sm">{label}</span>
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          type={kind === "pin" ? "password" : "text"}
-          inputMode={kind === "pin" ? "numeric" : "text"}
-          autoComplete="off"
-          autoCapitalize="characters"
-          className="w-full rounded border p-3 text-center text-2xl tracking-widest"
-        />
-      </label>
-      {error && <p className="text-red-600">{error}</p>}
-      <button className="w-full rounded bg-black p-3 text-white">Go</button>
-    </form>
+    <Card>
+      <form onSubmit={submit} className="space-y-4">
+        <h1 className="text-2xl font-semibold tracking-tight">{kind === "pair" ? "Connect this device" : "Hi! Enter your PIN"}</h1>
+        {kind === "pair" && <p className="text-sm text-slate-600">Ask a parent for the pairing code.</p>}
+        <label className={labelText}>
+          {kind === "pair" ? "Pairing code" : "Your PIN"}
+          <input
+            value={value}
+            onChange={(e) => setValue(kind === "pin" ? e.target.value.replace(/\D/g, "").slice(0, 4) : e.target.value.toUpperCase())}
+            type={kind === "pin" ? "password" : "text"}
+            inputMode={kind === "pin" ? "numeric" : "text"}
+            autoComplete="off"
+            autoCapitalize="characters"
+            className={`${field} text-center text-2xl tracking-widest`}
+          />
+        </label>
+        {error && (
+          <p role="alert" className="text-sm text-red-700">
+            {error}
+          </p>
+        )}
+        <button disabled={busy || !value} className={`${btn.primary} w-full py-3 disabled:opacity-50`}>
+          Go
+        </button>
+      </form>
+    </Card>
   );
 }
 
-function Home({ state, refresh }: { state: State; refresh: () => Promise<void> }) {
+function Home({ state, clockOffset, refresh }: { state: State; clockOffset: number; refresh: () => Promise<void> }) {
   const [answer, setAnswer] = useState("");
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  // Keep the schedule status current without refetching.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(t);
+  }, []);
+  const window = activeWindow(state.schedule.rules, state.schedule.timezone, now + clockOffset);
 
   async function submit(q: Question, value: string) {
     setError(null);
+    setBusy(true);
     const r = await post("/api/kid/answer", { questionId: q.id, answer: value });
+    setBusy(false);
     if (!r.ok) {
       if (r.status === 403) return refresh();
-      return setError("Could not save that answer");
+      return setError("Could not save that answer. Try again.");
     }
     setFeedback(
       r.json.correct
         ? r.json.earnedMinutes > 0
-          ? `Correct! +${r.json.earnedMinutes} minutes`
-          : "Correct! (daily limit reached, no more minutes today)"
+          ? { text: `Correct! +${r.json.earnedMinutes} minutes`, tone: "good" }
+          : { text: "Correct! The daily limit is reached, so no more minutes today.", tone: "info" }
         : r.json.attemptsLeft > 0
-          ? `Not quite — try again (${r.json.attemptsLeft} ${r.json.attemptsLeft === 1 ? "try" : "tries"} left)`
-          : "Not quite — no minutes for this one",
+          ? { text: `Not quite. Try again (${r.json.attemptsLeft} ${r.json.attemptsLeft === 1 ? "try" : "tries"} left).`, tone: "bad" }
+          : { text: "Not quite. No minutes for this one.", tone: "bad" },
     );
     setAnswer("");
     await refresh();
   }
 
-  async function spend(minutes: number) {
-    setError(null);
-    const r = await post("/api/kid/spend", { minutes });
-    if (!r.ok) {
-      if (r.status === 403) return refresh();
-      return setError(r.json.error === "insufficient_balance" ? "Not enough minutes" : "Cannot start now");
-    }
-    await refresh();
-  }
-
   const q = state.question;
+  const feedbackStyle = { good: "bg-emerald-50 text-emerald-900", info: "bg-slate-100 text-slate-800", bad: "bg-red-50 text-red-900" };
+
   return (
-    <main className="mx-auto max-w-md space-y-6 p-6">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold">{state.name}</h1>
-        <p className="text-lg">
-          <b>{state.balanceMinutes}</b> min banked
-        </p>
+    <div className="space-y-5">
+      <header>
+        <p className="text-sm text-slate-500">Hi</p>
+        <h1 className="text-3xl font-semibold tracking-tight">{state.name}</h1>
       </header>
 
-      {state.session ? (
-        <Countdown endsAt={state.session.endsAt} onDone={refresh} />
-      ) : (
-        state.balanceMinutes > 0 && (
-          <section className="space-y-2 rounded border p-4">
-            <p className="font-medium">Use your minutes</p>
-            <div className="flex flex-wrap gap-2">
-              {[5, 10, 15, 30, state.balanceMinutes]
-                .filter((m, i, a) => m > 0 && m <= state.balanceMinutes && a.indexOf(m) === i)
-                .map((m) => (
-                  <button key={m} onClick={() => spend(m)} className="rounded border px-3 py-2">
-                    {m} min
-                  </button>
-                ))}
-            </div>
-          </section>
-        )
-      )}
+      <Card>
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Screen time in the bank</p>
+        <p className="mt-1 text-5xl font-semibold tabular-nums">
+          {state.balanceMinutes}
+          <span className="ml-2 text-xl font-normal text-slate-500">min</span>
+        </p>
+        {window?.mode === "blocked" && (
+          <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-900">The phone is locked until {minuteLabel(window.endMinute)}.</p>
+        )}
+        {window?.mode === "free" && (
+          <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">
+            Free time until {minuteLabel(window.endMinute)}. No minutes are used.
+          </p>
+        )}
+        <p className="mt-3 text-sm text-slate-600">
+          Answer homework to earn more. Minutes are used automatically while you use other apps on your phone.
+        </p>
+      </Card>
 
-      {feedback && <p className="rounded bg-blue-50 p-3">{feedback}</p>}
-      {error && <p className="text-red-600">{error}</p>}
+      <div aria-live="polite">
+        {feedback && <p className={`rounded-xl p-4 text-base font-medium ${feedbackStyle[feedback.tone]}`}>{feedback.text}</p>}
+        {error && (
+          <p role="alert" className="rounded-xl bg-red-50 p-4 text-base text-red-900">
+            {error}
+          </p>
+        )}
+      </div>
 
       {q ? (
-        <section className="space-y-3 rounded border p-4">
-          <p className="text-sm text-gray-600">
-            {q.subject} · worth {Math.min(state.minutesPerQuestion, state.earnableTodayMinutes)} min
+        <Card className="space-y-4">
+          <p className="text-sm text-slate-500">
+            {q.subject} · worth up to {Math.min(state.minutesPerQuestion, state.earnableTodayMinutes)} min
           </p>
-          <p className="text-lg">{q.text}</p>
+          <p className="text-xl leading-snug">{q.text}</p>
           {q.type === "multiple_choice" && q.options ? (
             <div className="space-y-2">
               {q.options.map((o) => (
-                <button key={o} onClick={() => submit(q, o)} className="w-full rounded border p-3 text-left">
+                <button key={o} disabled={busy} onClick={() => submit(q, o)} className={`${btn.secondary} w-full justify-start py-3 text-base disabled:opacity-50`}>
                   {o}
                 </button>
               ))}
@@ -180,39 +214,18 @@ function Home({ state, refresh }: { state: State; refresh: () => Promise<void> }
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
                 inputMode="decimal"
-                className="min-w-0 flex-1 rounded border p-3"
+                aria-label="Your answer"
+                className={`${field} !mt-0 min-w-0 flex-1 py-3 text-lg`}
               />
-              <button className="rounded bg-black px-4 text-white">Answer</button>
+              <button disabled={busy || !answer.trim()} className={`${btn.primary} px-5 disabled:opacity-50`}>
+                Answer
+              </button>
             </form>
           )}
-        </section>
+        </Card>
       ) : (
-        <p className="text-gray-600">No homework waiting. Ask a parent to add some.</p>
+        <Card className="text-center text-sm text-slate-600">No homework waiting. Ask a parent to add some.</Card>
       )}
-    </main>
-  );
-}
-
-function Countdown({ endsAt, onDone }: { endsAt: string; onDone: () => void }) {
-  const [now, setNow] = useState(() => Date.now());
-  const left = Math.max(0, Math.round((new Date(endsAt).getTime() - now) / 1000));
-
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  useEffect(() => {
-    if (left === 0) onDone();
-  }, [left, onDone]);
-
-  const mm = String(Math.floor(left / 60)).padStart(2, "0");
-  const ss = String(left % 60).padStart(2, "0");
-  return (
-    <section className="rounded bg-green-50 p-4 text-center">
-      <p className="text-sm">Screen time left</p>
-      <p className="font-mono text-4xl">
-        {mm}:{ss}
-      </p>
-    </section>
+    </div>
   );
 }
