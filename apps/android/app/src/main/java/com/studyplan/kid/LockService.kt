@@ -39,8 +39,12 @@ class LockService : AccessibilityService() {
         val now = SystemClock.elapsedRealtime()
         if (now - lastLockAt < 1_000) return // avoid fighting the launcher
         lastLockAt = now
-        performGlobalAction(GLOBAL_ACTION_HOME)
-        startActivity(Intent(this, LockActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        // Cover the blocked app with the lock screen. Sending the phone home as well made the
+        // launcher win the race and hide the lock screen.
+        startActivity(
+            Intent(this, LockActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_ANIMATION),
+        )
     }
 
     override fun onInterrupt() = Unit
