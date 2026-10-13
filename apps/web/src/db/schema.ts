@@ -9,7 +9,9 @@ import {
 
 export const parents = pgTable("parents", {
   id: uuid("id").primaryKey().defaultRandom(),
-  email: text("email").notNull().unique(),
+  // Id of the signed-in user in Neon Auth; set on first login.
+  authUserId: text("auth_user_id").notNull().unique(),
+  email: text("email"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -22,6 +24,9 @@ export const kids = pgTable("kids", {
   grade: integer("grade").notNull(),
   minutesPerQuestion: integer("minutes_per_question").notNull().default(10),
   dailyCapMinutes: integer("daily_cap_minutes").notNull().default(120),
+  pinHash: text("pin_hash"),
+  pinFailedAttempts: integer("pin_failed_attempts").notNull().default(0),
+  pinLockedUntil: timestamp("pin_locked_until"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -32,7 +37,9 @@ export const devices = pgTable("devices", {
     .references(() => kids.id, { onDelete: "cascade" }),
   platform: text("platform").notNull(), // android | ios | web
   pairingCode: text("pairing_code").unique(),
-  token: text("token").unique(),
+  pairingExpiresAt: timestamp("pairing_expires_at"),
+  // sha256 of the device token; the raw token is shown to the device once.
+  tokenHash: text("token_hash").unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
