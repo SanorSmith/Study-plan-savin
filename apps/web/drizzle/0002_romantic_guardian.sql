@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "attempts_one_per_question" ON "attempts" USING btree ("question_id","kid_id");

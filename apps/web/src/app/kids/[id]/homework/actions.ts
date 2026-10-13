@@ -27,13 +27,14 @@ export async function assignHomework(kidId: string, form: FormData) {
     .values({ kidId: kid.id, subject: input.subject, status: "assigned" })
     .returning({ id: homeworkSets.id });
   await db.insert(questions).values(
-    input.questions.map((q) => ({
+    input.questions.map((q, position) => ({
       setId: set.id,
       text: q.text,
       type: q.type,
       options: q.type === "multiple_choice" ? q.options : null,
       answerKey: q.answerKey,
       confirmed: true,
+      position,
     })),
   );
   redirect(`/kids/${kid.id}`);

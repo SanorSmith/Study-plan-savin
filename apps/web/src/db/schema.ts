@@ -1,9 +1,11 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   integer,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -40,6 +42,8 @@ export const devices = pgTable("devices", {
   pairingExpiresAt: timestamp("pairing_expires_at"),
   // sha256 of the device token; the raw token is shown to the device once.
   tokenHash: text("token_hash").unique(),
+  // Set when the kid enters the right PIN on this device; the kid view needs it.
+  unlockedUntil: timestamp("unlocked_until"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -63,32 +67,47 @@ export const questions = pgTable("questions", {
   options: text("options").array(),
   answerKey: text("answer_key").notNull(),
   confirmed: boolean("confirmed").notNull().default(false),
+  position: integer("position").notNull().default(0),
 });
 
-export const attempts = pgTable("attempts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  questionId: uuid("question_id")
-    .notNull()
-    .references(() => questions.id, { onDelete: "cascade" }),
-  kidId: uuid("kid_id")
-    .notNull()
-    .references(() => kids.id, { onDelete: "cascade" }),
-  answer: text("answer").notNull(),
-  correct: boolean("correct").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const attempts = pgTable(
+  "attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => questions.id, { onDelete: "cascade" }),
+    kidId: uuid("kid_id")
+      .notNull()
+      .references(() => kids.id, { onDelete: "cascade" }),
+    answer: text("answer").notNull(),
+    correct: boolean("correct").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  // One attempt per question per kid.
+  (t) => [uniqueIndex("attempts_one_per_question").on(t.questionId, t.kidId)],
+);
 
 // Positive delta = earned, negative = spent.
-export const creditLedger = pgTable("credit_ledger", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  kidId: uuid("kid_id")
-    .notNull()
-    .references(() => kids.id, { onDelete: "cascade" }),
-  deltaMinutes: integer("delta_minutes").notNull(),
-  reason: text("reason").notNull(), // correct_answer | spend | adjustment
-  questionId: uuid("question_id").references(() => questions.id),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const creditLedger = pgTable(
+  "credit_ledger",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kidId: uuid("kid_id")
+      .notNull()
+      .references(() => kids.id, { onDelete: "cascade" }),
+    deltaMinutes: integer("delta_minutes").notNull(),
+    reason: text("reason").notNull(), // correct_answer | spend | adjustment
+    questionId: uuid("question_id").references(() => questions.id),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    // A question can only earn minutes once per kid.
+    uniqueIndex("credit_ledger_one_earn_per_question")
+      .on(t.kidId, t.questionId)
+      .where(sql`${t.reason} = 'correct_answer'`),
+  ],
+);
 
 export const screenSessions = pgTable("screen_sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
