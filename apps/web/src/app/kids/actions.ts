@@ -6,7 +6,9 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db";
 import { devices, kids } from "@/db/schema";
 import { requireParent } from "@/lib/auth";
+import { BonusInput } from "@/lib/bonus-input";
 import { KidInput, PinInput } from "@/lib/kid-input";
+import { grantBonus } from "@/lib/kid-service";
 import { generatePairingCode, pairingExpiry } from "@/lib/pairing";
 import { hashPin } from "@/lib/pin";
 
@@ -68,4 +70,23 @@ export async function createPairingCode(kidId: string, form: FormData) {
     pairingExpiresAt: pairingExpiry(new Date()),
   });
   revalidatePath(`/kids/${kidId}`);
+}
+
+/** Parent gives bonus screen time without any homework. */
+export async function giveBonus(kidId: string, form: FormData) {
+  const parent = await requireParent();
+  const input = BonusInput.parse({
+    minutes: form.get("minutes"),
+    startNow: form.get("startNow") === "on",
+  });
+
+  const [kid] = await getDb()
+    .select({ id: kids.id })
+    .from(kids)
+    .where(and(eq(kids.id, kidId), eq(kids.parentId, parent.id)));
+  if (!kid) throw new Error("kid not found");
+
+  await grantBonus(kid.id, input.minutes, input.startNow);
+  revalidatePath(`/kids/${kidId}`);
+  revalidatePath("/dashboard");
 }

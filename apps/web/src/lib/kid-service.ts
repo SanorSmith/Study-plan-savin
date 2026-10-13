@@ -242,3 +242,23 @@ export async function startScreenTime(ctx: DeviceContext, minutes: number): Prom
   await db.insert(screenSessions).values({ kidId, deviceId: ctx.device.id, endsAt });
   return { ok: true, endsAt };
 }
+
+/**
+ * Parent-granted screen time, no homework needed. The minutes are added to the kid's bank as a
+ * "bonus" (which does not count toward the daily earning cap). With `startNow` and no session
+ * running, the minutes are also spent on the spot, starting a session on the kid's next refresh.
+ */
+export async function grantBonus(kidId: string, minutes: number, startNow: boolean) {
+  const db = getDb();
+  if (!startNow || (await activeSession(kidId))) {
+    await db.insert(creditLedger).values({ kidId, deltaMinutes: minutes, reason: "bonus" });
+    return { started: false };
+  }
+  const endsAt = new Date(Date.now() + minutes * 60_000);
+  await db.batch([
+    db.insert(creditLedger).values({ kidId, deltaMinutes: minutes, reason: "bonus" }),
+    db.insert(creditLedger).values({ kidId, deltaMinutes: -minutes, reason: "spend" }),
+    db.insert(screenSessions).values({ kidId, deviceId: null, endsAt }),
+  ]);
+  return { started: true };
+}
