@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { getAuthUser } from "@/lib/auth";
+import { EXTRACT_LIMIT, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const MAX_BYTES = 4 * 1024 * 1024;
 const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -42,9 +43,10 @@ const schema = {
 // Returns suggested questions only. The parent must confirm the answer key
 // before anything is assigned to a kid.
 export async function POST(request: Request) {
-  if (!(await getAuthUser())) {
-    return Response.json({ error: "sign in required" }, { status: 401 });
-  }
+  const user = await getAuthUser();
+  if (!user) return Response.json({ error: "sign in required" }, { status: 401 });
+  const rl = await rateLimit(`extract:${user.id}`, EXTRACT_LIMIT);
+  if (!rl.allowed) return tooManyRequests(rl.retryAfterSeconds);
   const form = await request.formData();
   const file = form.get("image");
   if (!(file instanceof File)) {

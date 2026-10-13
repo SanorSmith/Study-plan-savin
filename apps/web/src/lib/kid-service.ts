@@ -11,7 +11,7 @@ import {
 } from "@/db/schema";
 import { checkExact } from "@/lib/check-answer";
 import type { DeviceContext } from "@/lib/device-auth";
-import { earnableToday } from "@/lib/ledger";
+import { earnableToday, MAX_ATTEMPTS, minutesForAttempt } from "@/lib/ledger";
 import { generateDeviceToken, isPairingValid } from "@/lib/pairing";
 import { isLocked, nextFailureState, verifyPin } from "@/lib/pin";
 
@@ -126,8 +126,15 @@ async function nextQuestion(kidId: string) {
           getDb()
             .select({ one: sql`1` })
             .from(attempts)
-            .where(and(eq(attempts.questionId, questions.id), eq(attempts.kidId, kidId))),
+            .where(
+              and(
+                eq(attempts.questionId, questions.id),
+                eq(attempts.kidId, kidId),
+                eq(attempts.correct, true),
+              ),
+            ),
         ),
+        sql`(select count(*) from attempts a where a.question_id = ${questions.id} and a.kid_id = ${kidId}::uuid) < ${MAX_ATTEMPTS}`,
       ),
     )
     .orderBy(asc(homeworkSets.createdAt), asc(questions.position))
@@ -143,6 +150,8 @@ export async function kidState(kid: typeof kids.$inferSelect) {
     nextQuestion(kid.id),
   ]);
   return {
+    // Lets clients measure the session from the server's clock, not the phone's.
+    serverNow: new Date().toISOString(),
     name: kid.name,
     balanceMinutes: balance,
     minutesPerQuestion: kid.minutesPerQuestion,
@@ -153,10 +162,10 @@ export async function kidState(kid: typeof kids.$inferSelect) {
 }
 
 export type AnswerResult =
-  | { ok: true; correct: boolean; earnedMinutes: number }
+  | { ok: true; correct: boolean; earnedMinutes: number; attemptsLeft: number }
   | { ok: false; reason: "not_found" | "already_answered" };
 
-/** One attempt per question: a wrong answer can't be retried for minutes. */
+/** Up to MAX_ATTEMPTS tries per question; a retry earns half the minutes. */
 export async function submitAnswer(
   kid: typeof kids.$inferSelect,
   questionId: string,
@@ -179,18 +188,27 @@ export async function submitAnswer(
   if (!q) return { ok: false, reason: "not_found" };
   const question = q.question;
 
+  const prior = await db
+    .select({ correct: attempts.correct })
+    .from(attempts)
+    .where(and(eq(attempts.questionId, question.id), eq(attempts.kidId, kid.id)));
+  if (prior.some((a) => a.correct) || prior.length >= MAX_ATTEMPTS) {
+    return { ok: false, reason: "already_answered" };
+  }
+
   const correct = checkExact(question.type as "multiple_choice" | "numeric", answer, question.answerKey);
-  const inserted = await db
-    .insert(attempts)
-    .values({ questionId: question.id, kidId: kid.id, answer, correct })
-    .onConflictDoNothing()
-    .returning({ id: attempts.id });
-  if (inserted.length === 0) return { ok: false, reason: "already_answered" };
+  await db.insert(attempts).values({ questionId: question.id, kidId: kid.id, answer, correct });
+  const attemptsLeft = correct ? 0 : MAX_ATTEMPTS - prior.length - 1;
 
   let earnedMinutes = 0;
   if (correct) {
-    const minutes = earnableToday(await earnedToday(kid.id), kid.minutesPerQuestion, kid.dailyCapMinutes);
+    const minutes = earnableToday(
+      await earnedToday(kid.id),
+      minutesForAttempt(kid.minutesPerQuestion, prior.length),
+      kid.dailyCapMinutes,
+    );
     if (minutes > 0) {
+      // The unique ledger index means a double-submitted correct answer pays once.
       const credit = await db
         .insert(creditLedger)
         .values({ kidId: kid.id, deltaMinutes: minutes, reason: "correct_answer", questionId: question.id })
@@ -199,7 +217,7 @@ export async function submitAnswer(
       if (credit.length === 1) earnedMinutes = minutes;
     }
   }
-  return { ok: true, correct, earnedMinutes };
+  return { ok: true, correct, earnedMinutes, attemptsLeft };
 }
 
 export type SpendResult =

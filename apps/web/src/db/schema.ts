@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  index,
   integer,
   pgTable,
   text,
@@ -84,8 +85,7 @@ export const attempts = pgTable(
     correct: boolean("correct").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  // One attempt per question per kid.
-  (t) => [uniqueIndex("attempts_one_per_question").on(t.questionId, t.kidId)],
+  (t) => [index("attempts_by_question_kid").on(t.questionId, t.kidId)],
 );
 
 // Positive delta = earned, negative = spent.
@@ -117,4 +117,11 @@ export const screenSessions = pgTable("screen_sessions", {
   deviceId: uuid("device_id").references(() => devices.id),
   startedAt: timestamp("started_at").notNull().defaultNow(),
   endsAt: timestamp("ends_at").notNull(),
+});
+
+// Fixed-window request counters, keyed like "pair:<ip>".
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  windowStart: timestamp("window_start").notNull().defaultNow(),
+  count: integer("count").notNull().default(0),
 });

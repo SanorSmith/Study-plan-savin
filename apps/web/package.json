@@ -7,10 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "node --experimental-strip-types --no-warnings scripts/e2e.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
+    "@neondatabase/auth": "^0.6.0-beta",
     "@neondatabase/serverless": "^1.2.0",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.0",

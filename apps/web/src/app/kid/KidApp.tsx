@@ -104,7 +104,9 @@ function Home({ state, refresh }: { state: State; refresh: () => Promise<void> }
         ? r.json.earnedMinutes > 0
           ? `Correct! +${r.json.earnedMinutes} minutes`
           : "Correct! (daily limit reached, no more minutes today)"
-        : "Not quite — no minutes for this one",
+        : r.json.attemptsLeft > 0
+          ? `Not quite — try again (${r.json.attemptsLeft} ${r.json.attemptsLeft === 1 ? "try" : "tries"} left)`
+          : "Not quite — no minutes for this one",
     );
     setAnswer("");
     await refresh();

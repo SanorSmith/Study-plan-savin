@@ -2,11 +2,15 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import { DEVICE_COOKIE } from "@/lib/device-auth";
 import { pairDevice } from "@/lib/kid-service";
+import { clientIp, PAIR_LIMIT, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const Body = z.object({ code: z.string().trim().min(4).max(16) });
 
 /** Exchanges a pairing code for a device token (returned once, and set as a cookie for web). */
 export async function POST(request: Request) {
+  const rl = await rateLimit(`pair:${await clientIp()}`, PAIR_LIMIT);
+  if (!rl.allowed) return tooManyRequests(rl.retryAfterSeconds);
+
   const body = Body.safeParse(await request.json().catch(() => null));
   if (!body.success) return Response.json({ error: "code is required" }, { status: 400 });
 
