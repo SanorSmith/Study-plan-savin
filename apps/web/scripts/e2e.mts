@@ -111,6 +111,10 @@ try {
     sync,
   );
   check("sync needs a token", (await call("/api/kid/sync", null)).status === 401);
+  check("sync has no approval by default", sync.json.approvedUntil === null, sync.json);
+  check("parent-unlock needs a token", (await call("/api/kid/parent-unlock", null, { pin: "123456" })).status === 401);
+  check("parent-unlock rejects a bad PIN format", (await call("/api/kid/parent-unlock", token, { pin: "12" })).status === 400);
+  check("parent-unlock says no PIN is set yet", (await call("/api/kid/parent-unlock", token, { pin: "123456" })).status === 403);
   check("spend endpoint is gone", (await call("/api/kid/spend", token, { minutes: 5 })).status === 404);
 
   // PIN lockout

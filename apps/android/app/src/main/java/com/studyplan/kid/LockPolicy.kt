@@ -7,6 +7,17 @@ import android.view.inputmethod.InputMethodManager
 
 /** Which apps are never blocked or charged, and whether the lock service is switched on. */
 object LockPolicy {
+    /**
+     * Settings (where the lock can be switched off and the app uninstalled) and the system installers
+     * (which show the uninstall confirmation). Parents-only until a parent approves them.
+     */
+    val protectedPackages = setOf(
+        "com.android.settings",
+        "com.android.packageinstaller",
+        "com.google.android.packageinstaller",
+        "com.samsung.android.packageinstaller",
+    )
+
     /** Study Plan itself, the home screen, the dialer, system UI and keyboards. Everything else counts as screen time. */
     fun allowedPackages(c: Context): Set<String> {
         val pm = c.packageManager

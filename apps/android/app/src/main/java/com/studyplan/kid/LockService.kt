@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
  * Watches which app is in front (package name only, never its content) once a second while the screen is on.
  *
  * - An allowed app (Study Plan, home, dialer, keyboard, system UI): nothing happens.
+ * - Settings and the uninstall screens: parents-only until a parent approves them, whatever the credit.
  * - Any other app: if the parent's schedule locks the phone, or there is no credit left, the lock screen
  *   covers it. Otherwise the seconds are charged to the kid's bank automatically.
  * - Screen off: nothing is charged.
@@ -84,6 +85,8 @@ class LockService : AccessibilityService() {
         val decision = decide(
             paired = Store.token(this) != null,
             allowedApp = pkg == null || pkg in allowed,
+            protectedApp = pkg != null && pkg in LockPolicy.protectedPackages,
+            approved = Store.isApproved(this),
             window = activeWindow(Store.schedule(this), Store.nowMs(this)),
             remainingSec = Store.remainingSec(this),
         )

@@ -15,6 +15,10 @@ export const parents = pgTable("parents", {
   // Id of the signed-in user in Neon Auth; set on first login.
   authUserId: text("auth_user_id").notNull().unique(),
   email: text("email"),
+  // 6-digit PIN a parent types on a kid's phone to open Settings and uninstall screens.
+  approvalPinHash: text("approval_pin_hash"),
+  approvalFailedAttempts: integer("approval_failed_attempts").notNull().default(0),
+  approvalLockedUntil: timestamp("approval_locked_until"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -30,6 +34,8 @@ export const kids = pgTable("kids", {
   pinHash: text("pin_hash"),
   pinFailedAttempts: integer("pin_failed_attempts").notNull().default(0),
   pinLockedUntil: timestamp("pin_locked_until"),
+  // While in the future, the kid's phone allows Settings and uninstall screens (a parent approved it).
+  settingsApprovedUntil: timestamp("settings_approved_until"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

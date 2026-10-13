@@ -11,11 +11,11 @@ const KEY_LEN = 32;
 export const MAX_PIN_ATTEMPTS = 5;
 export const LOCKOUT_MINUTES = 5;
 
-export const isValidPin = (pin: string) => /^\d{4}$/.test(pin);
+export const isValidPin = (pin: string) => /^\d{4,6}$/.test(pin);
 
 /** Returns "salt:hash" (hex). */
 export async function hashPin(pin: string): Promise<string> {
-  if (!isValidPin(pin)) throw new Error("PIN must be 4 digits");
+  if (!isValidPin(pin)) throw new Error("PIN must be 4 to 6 digits");
   const salt = randomBytes(16);
   const hash = await scryptAsync(pin, salt, KEY_LEN);
   return `${salt.toString("hex")}:${hash.toString("hex")}`;

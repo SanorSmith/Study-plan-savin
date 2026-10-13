@@ -61,12 +61,27 @@ class ScheduleTest {
     fun decisionsFollowTheRules() {
         val blocked = Window(Mode.Blocked, 420)
         val free = Window(Mode.Free, 600)
-        assertEquals(Decision.Allow, decide(true, true, blocked, 0)) // allowed apps are never blocked
-        assertEquals(Decision.Allow, decide(false, false, blocked, 0)) // not paired: never lock
-        assertEquals(Decision.Lock(LockReason.Scheduled, 420), decide(true, false, blocked, 9999))
-        assertEquals(Decision.Allow, decide(true, false, free, 0))
-        assertEquals(Decision.Consume, decide(true, false, null, 1))
-        assertEquals(Decision.Lock(LockReason.NoCredit, null), decide(true, false, null, 0))
+        // decide(paired, allowedApp, protectedApp, approved, window, remainingSec)
+        assertEquals(Decision.Allow, decide(true, true, false, false, blocked, 0)) // allowed apps are never blocked
+        assertEquals(Decision.Allow, decide(false, false, false, false, blocked, 0)) // not paired: never lock
+        assertEquals(Decision.Lock(LockReason.Scheduled, 420), decide(true, false, false, false, blocked, 9999))
+        assertEquals(Decision.Allow, decide(true, false, false, false, free, 0))
+        assertEquals(Decision.Consume, decide(true, false, false, false, null, 1))
+        assertEquals(Decision.Lock(LockReason.NoCredit, null), decide(true, false, false, false, null, 0))
+    }
+
+    @Test
+    fun settingsAndUninstallNeedParentApproval() {
+        val locked = Decision.Lock(LockReason.Protected, null)
+        // Protected even with plenty of credit, in free time, and when otherwise allowed.
+        assertEquals(locked, decide(true, false, true, false, null, 9999))
+        assertEquals(locked, decide(true, false, true, false, Window(Mode.Free, 600), 9999))
+        assertEquals(locked, decide(true, true, true, false, null, 9999))
+        // Approved: opens, and costs no credit.
+        assertEquals(Decision.Allow, decide(true, false, true, true, null, 0))
+        assertEquals(Decision.Allow, decide(true, false, true, true, Window(Mode.Blocked, 420), 0))
+        // An unpaired phone is never locked.
+        assertEquals(Decision.Allow, decide(false, false, true, false, null, 0))
     }
 
     @Test

@@ -9,7 +9,21 @@ import { isPairingValid } from "@/lib/pairing";
 import { KidFields } from "../KidFields";
 import { recentActivity } from "@/lib/results";
 import { daysLabel, DAY_LABELS, formatMinute } from "@/lib/schedule-input";
-import { addScheduleRule, createPairingCode, deleteScheduleRule, giveBonus, updateKid } from "../actions";
+import {
+  addScheduleRule,
+  createPairingCode,
+  deleteScheduleRule,
+  giveBonus,
+  grantApproval,
+  revokeApproval,
+  updateKid,
+} from "../actions";
+import { APPROVAL_MINUTES } from "@/lib/kid-service";
+
+const fmtTime = new Intl.DateTimeFormat("sv-SE", {
+  timeStyle: "short",
+  timeZone: process.env.APP_TIMEZONE ?? "Europe/Stockholm",
+});
 
 async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -135,6 +149,25 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
               </li>
             ))}
           </ul>
+        )}
+      </section>
+      <section>
+        <h2 className="mb-1 text-xl font-semibold">Settings and uninstall</h2>
+        <p className="mb-3 text-sm text-gray-600">
+          On {kid.name}&apos;s phone, Settings and the uninstall screens are parents-only. Approve them here, or type your
+          parent PIN on the phone. Approval lasts {APPROVAL_MINUTES} minutes.
+        </p>
+        {kid.settingsApprovedUntil && kid.settingsApprovedUntil > now ? (
+          <div className="flex items-center justify-between rounded border border-green-300 bg-green-50 p-3 text-sm">
+            <span>Approved until {fmtTime.format(kid.settingsApprovedUntil)}</span>
+            <form action={revokeApproval.bind(null, kid.id)}>
+              <button className="text-red-600 underline">Cancel</button>
+            </form>
+          </div>
+        ) : (
+          <form action={grantApproval.bind(null, kid.id)}>
+            <button className="rounded border px-4 py-2">Allow for {APPROVAL_MINUTES} minutes</button>
+          </form>
         )}
       </section>
       <section>

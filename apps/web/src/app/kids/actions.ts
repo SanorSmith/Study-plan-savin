@@ -8,7 +8,7 @@ import { devices, kids, scheduleRules } from "@/db/schema";
 import { requireParent } from "@/lib/auth";
 import { BonusInput } from "@/lib/bonus-input";
 import { KidInput, PinInput } from "@/lib/kid-input";
-import { grantBonus } from "@/lib/kid-service";
+import { APPROVAL_MINUTES, grantBonus, setApproval } from "@/lib/kid-service";
 import { generatePairingCode, pairingExpiry } from "@/lib/pairing";
 import { hashPin } from "@/lib/pin";
 import { daysMask, ScheduleInput } from "@/lib/schedule-input";
@@ -117,5 +117,18 @@ export async function deleteScheduleRule(kidId: string, ruleId: string) {
   await getDb()
     .delete(scheduleRules)
     .where(and(eq(scheduleRules.id, ruleId), eq(scheduleRules.kidId, kid.id)));
+  revalidatePath(`/kids/${kidId}`);
+}
+
+/** Parent lets the kid's phone open Settings and uninstall screens for a few minutes. */
+export async function grantApproval(kidId: string) {
+  const kid = await ownedKid(kidId);
+  await setApproval(kid.id, APPROVAL_MINUTES);
+  revalidatePath(`/kids/${kidId}`);
+}
+
+export async function revokeApproval(kidId: string) {
+  const kid = await ownedKid(kidId);
+  await setApproval(kid.id, null);
   revalidatePath(`/kids/${kidId}`);
 }
