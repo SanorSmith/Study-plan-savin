@@ -18,5 +18,9 @@ export async function POST(request: Request) {
       { status: result.reason === "not_found" ? 404 : 409 },
     );
   }
-  return Response.json({ correct: result.correct, earnedMinutes: result.earnedMinutes });
+  return Response.json({
+    correct: result.correct,
+    earnedMinutes: result.earnedMinutes,
+    attemptsLeft: result.attemptsLeft,
+  });
 }
