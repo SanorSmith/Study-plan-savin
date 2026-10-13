@@ -38,6 +38,9 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
       <section>
         <Link href={`/kids/${kid.id}/homework/new`} className="rounded bg-black px-4 py-2 text-white">
           Add homework from a photo
+        </Link>{" "}
+        <Link href={`/kids/${kid.id}/homework`} className="rounded border px-4 py-2">
+          Homework and results
         </Link>
       </section>
       <section>
