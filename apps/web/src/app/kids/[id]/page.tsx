@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { and, desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { getDb } from "@/db";
@@ -33,6 +34,11 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
           <KidFields d={kid} pinHint={kid.pinHash ? "Leave blank to keep current" : "Not set"} />
           <button className="rounded bg-black px-4 py-2 text-white">Save</button>
         </form>
+      </section>
+      <section>
+        <Link href={`/kids/${kid.id}/homework/new`} className="rounded bg-black px-4 py-2 text-white">
+          Add homework from a photo
+        </Link>
       </section>
       <section>
         <h2 className="mb-3 text-xl font-semibold">Devices</h2>
