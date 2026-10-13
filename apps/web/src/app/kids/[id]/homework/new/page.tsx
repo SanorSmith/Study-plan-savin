@@ -1,8 +1,11 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { getDb } from "@/db";
 import { kids } from "@/db/schema";
+import { btn, PageHeader } from "@/components/ui";
+import { PageLoading, ParentShell } from "@/components/ParentShell";
 import { requireParent } from "@/lib/auth";
 import { HomeworkReview } from "./HomeworkReview";
 
@@ -16,16 +19,24 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
   if (!kid) notFound();
 
   return (
-    <main className="mx-auto max-w-md p-6">
-      <h1 className="mb-6 text-2xl font-semibold">New homework for {kid.name}</h1>
+    <ParentShell width="max-w-2xl">
+      <PageHeader
+        back={
+          <Link href={`/kids/${kid.id}`} className={btn.link}>
+            ← {kid.name}
+          </Link>
+        }
+        title={`New homework for ${kid.name}`}
+        subtitle="Take a photo of the worksheet. You check the answers before anything is assigned."
+      />
       <HomeworkReview kidId={kid.id} grade={kid.grade} />
-    </main>
+    </ParentShell>
   );
 }
 
 export default function NewHomeworkPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <Suspense fallback={<main className="p-6">Loading…</main>}>
+    <Suspense fallback={<PageLoading />}>
       <Content params={params} />
     </Suspense>
   );

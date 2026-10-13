@@ -109,3 +109,28 @@ export async function recentActivity(kidId: string, limit = 10): Promise<Activit
     .orderBy(desc(creditLedger.createdAt))
     .limit(limit);
 }
+
+export type KidOverview = { balanceMinutes: number; attemptsTotal: number; attemptsCorrect: number; setCount: number };
+
+/** The numbers shown at the top of a kid's page. */
+export async function kidOverview(kidId: string): Promise<KidOverview> {
+  const db = getDb();
+  const [[bal], [tries], [sets]] = await Promise.all([
+    db
+      .select({ minutes: sql<number>`coalesce(sum(${creditLedger.deltaMinutes}), 0)::int` })
+      .from(creditLedger)
+      .where(eq(creditLedger.kidId, kidId)),
+    db
+      .select({
+        total: sql<number>`count(*)::int`,
+        right: sql<number>`count(*) filter (where ${attempts.correct})::int`,
+      })
+      .from(attempts)
+      .where(eq(attempts.kidId, kidId)),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(homeworkSets)
+      .where(and(eq(homeworkSets.kidId, kidId), eq(homeworkSets.status, "assigned"))),
+  ]);
+  return { balanceMinutes: bal.minutes, attemptsTotal: tries.total, attemptsCorrect: tries.right, setCount: sets.n };
+}
