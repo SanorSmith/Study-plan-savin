@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { isEmailAllowed, NOT_INVITED } from "@/lib/allowlist";
 import { neonAuth } from "@/lib/neon-auth";
 
 type State = { error: string } | null;
@@ -14,6 +15,7 @@ const Credentials = z.object({
 export async function signIn(_prev: State, form: FormData): Promise<State> {
   const parsed = Credentials.safeParse({ email: form.get("email"), password: form.get("password") });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!isEmailAllowed(parsed.data.email)) return { error: NOT_INVITED };
 
   const { error } = await neonAuth.signIn.email(parsed.data);
   if (error) return { error: error.message || "Wrong email or password" };
@@ -23,6 +25,7 @@ export async function signIn(_prev: State, form: FormData): Promise<State> {
 export async function signUp(_prev: State, form: FormData): Promise<State> {
   const parsed = Credentials.safeParse({ email: form.get("email"), password: form.get("password") });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!isEmailAllowed(parsed.data.email)) return { error: NOT_INVITED };
   const name = String(form.get("name") ?? "").trim() || parsed.data.email.split("@")[0];
 
   const { error } = await neonAuth.signUp.email({ ...parsed.data, name });

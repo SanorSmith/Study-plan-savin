@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { getDb } from "@/db";
 import { parents } from "@/db/schema";
+import { isEmailAllowed } from "@/lib/allowlist";
 import { neonAuth } from "@/lib/neon-auth";
 
 /**
@@ -11,7 +12,10 @@ import { neonAuth } from "@/lib/neon-auth";
  */
 export async function getAuthUser(): Promise<{ id: string; email?: string } | null> {
   const { data: session } = await neonAuth.getSession();
-  return session?.user ? { id: session.user.id, email: session.user.email } : null;
+  const user = session?.user;
+  // An account that exists but is not on the allowlist is treated as signed out everywhere.
+  if (!user || !isEmailAllowed(user.email)) return null;
+  return { id: user.id, email: user.email };
 }
 
 /** The parent row for the signed-in user (created on first login). */
