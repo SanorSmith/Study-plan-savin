@@ -2,7 +2,8 @@
 // End-to-end test of the kid API against a real database.
 // Needs DATABASE_URL and a running server (npm run dev). It creates a throwaway
 // parent, kid and homework set, and deletes them when it finishes.
-//   npm run test:e2e            (E2E_BASE_URL overrides http://localhost:3000)
+//   npm run test:e2e            (E2E_BASE_URL overrides http://localhost:3000;
+//                                E2E_BYPASS sends the Vercel protection-bypass header)
 import { neon } from "@neondatabase/serverless";
 import { hashPin } from "../src/lib/pin.ts";
 import { generatePairingCode, pairingExpiry } from "../src/lib/pairing.ts";
@@ -18,7 +19,8 @@ const check = (name: string, ok: boolean, extra?: unknown) => {
 const call = async (path: string, token: string | null, body?: unknown, ip = RUN_IP) => {
   const res = await fetch(BASE + path, {
     method: body ? "POST" : "GET",
-    headers: { "content-type": "application/json", "x-real-ip": ip, ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    headers: { "content-type": "application/json", "x-real-ip": ip,
+      ...(process.env.E2E_BYPASS ? { "x-vercel-protection-bypass": process.env.E2E_BYPASS } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   return { status: res.status, json: (await res.json().catch(() => ({}))) as any };
@@ -65,6 +67,7 @@ try {
   let st = await call("/api/kid/state", token);
   check("state ok, first question, no answerKey", st.status === 200 && st.json.question.text === "2+2?" && !JSON.stringify(st.json).includes("answerKey"), st);
   check("balance starts 0", st.json.balanceMinutes === 0);
+  check("state includes serverNow", typeof st.json.serverNow === "string" && !Number.isNaN(Date.parse(st.json.serverNow)), st.json);
 
   // answers: 3 tries per question, retry earns half
   let a = await call("/api/kid/answer", token, { questionId: ids[0], answer: "5" });
@@ -94,6 +97,7 @@ try {
   check("cannot overspend", (await call("/api/kid/spend", token, { minutes: 30 })).status === 409);
   const sp = await call("/api/kid/spend", token, { minutes: 10 });
   check("spend 10 ok", sp.status === 200 && !!sp.json.endsAt, sp);
+  check("spend returns serverNow, ~10 min apart", Math.abs(Date.parse(sp.json.endsAt) - Date.parse(sp.json.serverNow) - 600_000) < 5_000, sp.json);
   check("no second session", (await call("/api/kid/spend", token, { minutes: 5 })).status === 409);
   st = await call("/api/kid/state", token);
   check("balance 15 + active session", st.json.balanceMinutes === 15 && !!st.json.session, st.json);
@@ -103,12 +107,19 @@ try {
   const locked = await call("/api/kid/unlock", token, { pin: "1234" });
   check("locked after 5 wrong tries", locked.status === 429, locked);
 
-  // rate limit: 10 pairing attempts per IP per 15 minutes
+  // rate limit: 10 pairing attempts per IP per 15 minutes. On a deployed server the platform sets the
+  // real client IP (a spoofed header is ignored), so the exact count and per-IP isolation are only
+  // checked locally; remotely we only require that the limit kicks in.
+  const remote = !!process.env.E2E_BASE_URL;
   const noisyIp = `${RUN_IP}-noisy`;
   const codes: number[] = [];
-  for (let i = 0; i < 11; i++) codes.push((await call("/api/device/pair", null, { code: "ZZZZZZZZ" }, noisyIp)).status);
-  check("10 pair attempts allowed, 11th is 429", codes.slice(0, 10).every((c) => c === 404) && codes[10] === 429, codes);
-  check("other IPs unaffected", (await call("/api/device/pair", null, { code: "ZZZZZZZZ" }, `${RUN_IP}-other`)).status === 404);
+  for (let i = 0; i < 12; i++) codes.push((await call("/api/device/pair", null, { code: "ZZZZZZZZ" }, noisyIp)).status);
+  if (remote) {
+    check("pairing is rate limited (429 within 12 attempts)", codes.includes(429), codes);
+  } else {
+    check("10 pair attempts allowed, 11th is 429", codes.slice(0, 10).every((c) => c === 404) && codes[10] === 429, codes);
+    check("other IPs unaffected", (await call("/api/device/pair", null, { code: "ZZZZZZZZ" }, `${RUN_IP}-other`)).status === 404);
+  }
 } finally {
   await sql`delete from rate_limits where key like ${"pair:" + RUN_IP + "%"}`;
   await sql`delete from parents where id = ${parent.id}`;
