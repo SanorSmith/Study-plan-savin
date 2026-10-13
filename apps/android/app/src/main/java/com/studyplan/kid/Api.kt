@@ -22,9 +22,13 @@ data class KidState(
     val balanceMinutes: Int,
     val minutesPerQuestion: Int,
     val earnableTodayMinutes: Int,
-    val sessionEndsAt: String?,
     val question: Question?,
+    val schedule: Schedule,
 )
+
+data class SyncData(val balanceMinutes: Int, val serverNow: String, val schedule: Schedule)
+
+data class UsageResult(val balanceMinutes: Int, val serverNow: String)
 
 data class AnswerResult(val correct: Boolean, val earnedMinutes: Int, val attemptsLeft: Int)
 
@@ -74,7 +78,6 @@ object Api {
             balanceMinutes = j.getInt("balanceMinutes"),
             minutesPerQuestion = j.getInt("minutesPerQuestion"),
             earnableTodayMinutes = j.getInt("earnableTodayMinutes"),
-            sessionEndsAt = j.optJSONObject("session")?.getString("endsAt"),
             question = q?.let {
                 Question(
                     id = it.getString("id"),
@@ -84,6 +87,7 @@ object Api {
                     subject = it.getString("subject"),
                 )
             },
+            schedule = scheduleFromJson(j.getJSONObject("schedule")),
         )
     }
 
@@ -92,9 +96,15 @@ object Api {
         return AnswerResult(j.getBoolean("correct"), j.getInt("earnedMinutes"), j.getInt("attemptsLeft"))
     }
 
-    /** Returns the remaining session time in ms, measured on the server's clock. */
-    suspend fun spend(token: String, minutes: Int): Long {
-        val j = call("POST", "/api/kid/spend", token, JSONObject().put("minutes", minutes))
-        return remainingMs(j.getString("endsAt"), j.getString("serverNow"))
+    /** Balance, schedule and server clock for the lock. Needs no PIN. */
+    suspend fun sync(token: String): SyncData {
+        val j = call("GET", "/api/kid/sync", token)
+        return SyncData(j.getInt("balanceMinutes"), j.getString("serverNow"), scheduleFromJson(j.getJSONObject("schedule")))
+    }
+
+    /** Reports screen time used. Sending the same [key] again never charges twice. */
+    suspend fun usage(token: String, minutes: Int, key: String): UsageResult {
+        val j = call("POST", "/api/kid/usage", token, JSONObject().put("minutes", minutes).put("key", key))
+        return UsageResult(j.getInt("balanceMinutes"), j.getString("serverNow"))
     }
 }

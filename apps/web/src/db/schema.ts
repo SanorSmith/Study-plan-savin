@@ -97,8 +97,10 @@ export const creditLedger = pgTable(
       .notNull()
       .references(() => kids.id, { onDelete: "cascade" }),
     deltaMinutes: integer("delta_minutes").notNull(),
-    reason: text("reason").notNull(), // correct_answer | spend | adjustment
+    reason: text("reason").notNull(), // correct_answer | usage | bonus | adjustment
     questionId: uuid("question_id").references(() => questions.id),
+    // Lets a client safely retry a usage report without being charged twice.
+    idempotencyKey: text("idempotency_key").unique(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [
@@ -124,4 +126,19 @@ export const rateLimits = pgTable("rate_limits", {
   key: text("key").primaryKey(),
   windowStart: timestamp("window_start").notNull().defaultNow(),
   count: integer("count").notNull().default(0),
+});
+
+// When a kid's phone is locked ("blocked") or free to use without credit ("free").
+// `days` is a bitmask (Monday = 1 ... Sunday = 64); times are minutes after midnight.
+// An end before the start means the window runs past midnight.
+export const scheduleRules = pgTable("schedule_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  kidId: uuid("kid_id")
+    .notNull()
+    .references(() => kids.id, { onDelete: "cascade" }),
+  mode: text("mode").notNull(), // blocked | free
+  days: integer("days").notNull(),
+  startMinute: integer("start_minute").notNull(),
+  endMinute: integer("end_minute").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });

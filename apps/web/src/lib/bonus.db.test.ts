@@ -2,8 +2,8 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getDb } from "@/db";
-import { creditLedger, kids, parents, screenSessions } from "@/db/schema";
-import { grantBonus, kidState } from "./kid-service";
+import { creditLedger, kids, parents, scheduleRules } from "@/db/schema";
+import { grantBonus, kidState, kidSync, recordUsage } from "./kid-service";
 
 describe.skipIf(!process.env.DATABASE_URL)("grantBonus", () => {
   // Created in beforeAll: a skipped suite still runs this callback, and getDb() throws without DATABASE_URL.
@@ -29,35 +29,40 @@ describe.skipIf(!process.env.DATABASE_URL)("grantBonus", () => {
     await db.delete(parents).where(eq(parents.id, parentId)); // cascades to the test kids
   });
 
-  it("banks the minutes without starting a session", async () => {
+  it("banks the minutes", async () => {
     const kid = await newKid();
-    expect(await grantBonus(kid.id, 15, false)).toEqual({ started: false });
+    await grantBonus(kid.id, 15);
     expect(await balance(kid.id)).toBe(15);
-    expect(await db.select().from(screenSessions).where(eq(screenSessions.kidId, kid.id))).toHaveLength(0);
-  });
-
-  it("starts a session right away and leaves the bank unchanged", async () => {
-    const kid = await newKid();
-    expect(await grantBonus(kid.id, 10, true)).toEqual({ started: true });
-    expect(await balance(kid.id)).toBe(0);
-    const [session] = await db.select().from(screenSessions).where(eq(screenSessions.kidId, kid.id));
-    const minutesLeft = (session.endsAt.getTime() - Date.now()) / 60_000;
-    expect(minutesLeft).toBeGreaterThan(9.5);
-    expect(minutesLeft).toBeLessThanOrEqual(10);
-    expect((await kidState(kid)).session).not.toBeNull();
-  });
-
-  it("banks instead when a session is already running", async () => {
-    const kid = await newKid();
-    await grantBonus(kid.id, 10, true);
-    expect(await grantBonus(kid.id, 5, true)).toEqual({ started: false });
-    expect(await balance(kid.id)).toBe(5);
-    expect(await db.select().from(screenSessions).where(eq(screenSessions.kidId, kid.id))).toHaveLength(1);
   });
 
   it("does not use up the daily earning limit", async () => {
     const kid = await newKid();
-    await grantBonus(kid.id, 60, false);
+    await grantBonus(kid.id, 60);
     expect((await kidState(kid)).earnableTodayMinutes).toBe(10);
+  });
+
+  it("charges usage against the balance and never below zero", async () => {
+    const kid = await newKid();
+    await grantBonus(kid.id, 5);
+    expect(await recordUsage(kid.id, 2, `t-${kid.id}-1`)).toBe(3);
+    expect(await recordUsage(kid.id, 10, `t-${kid.id}-2`)).toBe(0);
+    expect(await recordUsage(kid.id, 3, `t-${kid.id}-3`)).toBe(0);
+    expect(await balance(kid.id)).toBe(0);
+  });
+
+  it("charges a retried usage report only once", async () => {
+    const kid = await newKid();
+    await grantBonus(kid.id, 10);
+    expect(await recordUsage(kid.id, 4, `retry-${kid.id}`)).toBe(6);
+    expect(await recordUsage(kid.id, 4, `retry-${kid.id}`)).toBe(6);
+  });
+
+  it("returns the schedule with the balance for the phone", async () => {
+    const kid = await newKid();
+    await db.insert(scheduleRules).values({ kidId: kid.id, mode: "blocked", days: 127, startMinute: 1260, endMinute: 420 });
+    const sync = await kidSync(kid.id);
+    expect(sync.schedule.rules).toEqual([{ mode: "blocked", days: 127, startMinute: 1260, endMinute: 420 }]);
+    expect(typeof sync.schedule.timezone).toBe("string");
+    expect(Number.isNaN(Date.parse(sync.serverNow))).toBe(false);
   });
 });

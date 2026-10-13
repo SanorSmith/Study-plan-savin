@@ -116,7 +116,6 @@ private fun Home(vm: StudyViewModel, s: KidState) {
 
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(s.name, fontSize = 28.sp)
-        Text("${s.balanceMinutes} min banked", fontSize = 18.sp)
     }
 
     if (!lockEnabled) {
@@ -130,21 +129,7 @@ private fun Home(vm: StudyViewModel, s: KidState) {
         }
     }
 
-    Countdown(vm)
-
-    val running = Store.sessionRemainingMs(context) > 0
-    if (!running && s.balanceMinutes > 0) {
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Use your minutes", fontSize = 18.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(5, 10, 15, 30, s.balanceMinutes).filter { it in 1..s.balanceMinutes }.distinct().forEach { m ->
-                        OutlinedButton(onClick = { vm.spend(m) }, enabled = !vm.busy) { Text("$m min") }
-                    }
-                }
-            }
-        }
-    }
+    TimeCard()
 
     val q = s.question
     if (q == null) {
@@ -183,26 +168,31 @@ private fun QuestionCard(vm: StudyViewModel, s: KidState, q: Question) {
     }
 }
 
-/** Ticks once a second while a screen-time session is running. */
+/** Live time left, and what the phone is doing right now (locked, free time, or counting down). */
 @Composable
-private fun Countdown(vm: StudyViewModel) {
+private fun TimeCard() {
     val context = LocalContext.current
-    var left by remember { mutableLongStateOf(Store.sessionRemainingMs(context)) }
+    var remaining by remember { mutableLongStateOf(Store.remainingSec(context)) }
+    var window by remember { mutableStateOf(activeWindow(Store.schedule(context), Store.nowMs(context))) }
     LaunchedEffect(Unit) {
         while (true) {
-            val before = left
-            left = Store.sessionRemainingMs(context)
-            if (before > 0 && left == 0L) vm.refresh()
+            remaining = Store.remainingSec(context)
+            window = activeWindow(Store.schedule(context), Store.nowMs(context))
             delay(1_000)
         }
     }
-    if (left > 0) {
-        val total = left / 1000
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp).fillMaxWidth()) {
-                Text("Screen time left")
-                Text("%02d:%02d".format(total / 60, total % 60), fontSize = 44.sp, fontFamily = FontFamily.Monospace)
-            }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Screen time left")
+            Text("%d:%02d".format(remaining / 60, remaining % 60), fontSize = 44.sp, fontFamily = FontFamily.Monospace)
+            Text(
+                when (window?.mode) {
+                    Mode.Blocked -> "The phone is locked until ${formatMinute(window!!.endMinute)}."
+                    Mode.Free -> "Free time until ${formatMinute(window!!.endMinute)}. No minutes are used."
+                    null -> "Just open any app. Your minutes are used automatically while the screen is on."
+                },
+                fontSize = 14.sp,
+            )
         }
     }
 }

@@ -4,13 +4,14 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db";
-import { devices, kids } from "@/db/schema";
+import { devices, kids, scheduleRules } from "@/db/schema";
 import { requireParent } from "@/lib/auth";
 import { BonusInput } from "@/lib/bonus-input";
 import { KidInput, PinInput } from "@/lib/kid-input";
 import { grantBonus } from "@/lib/kid-service";
 import { generatePairingCode, pairingExpiry } from "@/lib/pairing";
 import { hashPin } from "@/lib/pin";
+import { daysMask, ScheduleInput } from "@/lib/schedule-input";
 
 const fields = (form: FormData) => ({
   name: form.get("name"),
@@ -75,10 +76,7 @@ export async function createPairingCode(kidId: string, form: FormData) {
 /** Parent gives bonus screen time without any homework. */
 export async function giveBonus(kidId: string, form: FormData) {
   const parent = await requireParent();
-  const input = BonusInput.parse({
-    minutes: form.get("minutes"),
-    startNow: form.get("startNow") === "on",
-  });
+  const input = BonusInput.parse({ minutes: form.get("minutes") });
 
   const [kid] = await getDb()
     .select({ id: kids.id })
@@ -86,7 +84,38 @@ export async function giveBonus(kidId: string, form: FormData) {
     .where(and(eq(kids.id, kidId), eq(kids.parentId, parent.id)));
   if (!kid) throw new Error("kid not found");
 
-  await grantBonus(kid.id, input.minutes, input.startNow);
+  await grantBonus(kid.id, input.minutes);
   revalidatePath(`/kids/${kidId}`);
   revalidatePath("/dashboard");
+}
+
+async function ownedKid(kidId: string) {
+  const parent = await requireParent();
+  const [kid] = await getDb()
+    .select({ id: kids.id })
+    .from(kids)
+    .where(and(eq(kids.id, kidId), eq(kids.parentId, parent.id)));
+  if (!kid) throw new Error("kid not found");
+  return kid;
+}
+
+/** Adds a locked ("blocked") or free time window for a kid. */
+export async function addScheduleRule(kidId: string, form: FormData) {
+  const kid = await ownedKid(kidId);
+  const input = ScheduleInput.parse({
+    mode: form.get("mode"),
+    days: daysMask(form.getAll("day").map(String)),
+    start: form.get("start"),
+    end: form.get("end"),
+  });
+  await getDb().insert(scheduleRules).values({ kidId: kid.id, ...input });
+  revalidatePath(`/kids/${kidId}`);
+}
+
+export async function deleteScheduleRule(kidId: string, ruleId: string) {
+  const kid = await ownedKid(kidId);
+  await getDb()
+    .delete(scheduleRules)
+    .where(and(eq(scheduleRules.id, ruleId), eq(scheduleRules.kidId, kid.id)));
+  revalidatePath(`/kids/${kidId}`);
 }

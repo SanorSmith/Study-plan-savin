@@ -59,6 +59,7 @@ try {
   // auth + PIN
   check("state needs token", (await call("/api/kid/state", null)).status === 401);
   check("state needs PIN", (await call("/api/kid/state", token)).status === 403);
+  check("sync works before the PIN is entered", (await call("/api/kid/sync", token)).status === 200);
   check("answer needs PIN", (await call("/api/kid/answer", token, { questionId: ids[0], answer: "4" })).status === 403);
   check("wrong pin 401", (await call("/api/kid/unlock", token, { pin: "0000" })).status === 401);
   check("right pin ok", (await call("/api/kid/unlock", token, { pin: "1234" })).status === 200);
@@ -67,7 +68,7 @@ try {
   let st = await call("/api/kid/state", token);
   check("state ok, first question, no answerKey", st.status === 200 && st.json.question.text === "2+2?" && !JSON.stringify(st.json).includes("answerKey"), st);
   check("balance starts 0", st.json.balanceMinutes === 0);
-  check("state includes serverNow", typeof st.json.serverNow === "string" && !Number.isNaN(Date.parse(st.json.serverNow)), st.json);
+  check("state includes serverNow and a schedule", typeof st.json.serverNow === "string" && Array.isArray(st.json.schedule?.rules), st.json);
 
   // answers: 3 tries per question, retry earns half
   let a = await call("/api/kid/answer", token, { questionId: ids[0], answer: "5" });
@@ -93,14 +94,24 @@ try {
   st = await call("/api/kid/state", token);
   check("balance 25, no more questions", st.json.balanceMinutes === 25 && st.json.question === null, st.json);
 
-  // spend
-  check("cannot overspend", (await call("/api/kid/spend", token, { minutes: 30 })).status === 409);
-  const sp = await call("/api/kid/spend", token, { minutes: 10 });
-  check("spend 10 ok", sp.status === 200 && !!sp.json.endsAt, sp);
-  check("spend returns serverNow, ~10 min apart", Math.abs(Date.parse(sp.json.endsAt) - Date.parse(sp.json.serverNow) - 600_000) < 5_000, sp.json);
-  check("no second session", (await call("/api/kid/spend", token, { minutes: 5 })).status === 409);
-  st = await call("/api/kid/state", token);
-  check("balance 15 + active session", st.json.balanceMinutes === 15 && !!st.json.session, st.json);
+  // usage: the phone reports screen time it measured; no sessions, no choosing minutes
+  const key = `e2e-${Date.now()}`;
+  check("usage needs a token", (await call("/api/kid/usage", null, { minutes: 5, key })).status === 401);
+  check("usage rejects bad input", (await call("/api/kid/usage", token, { minutes: 0, key })).status === 400);
+  let u = await call("/api/kid/usage", token, { minutes: 10, key });
+  check("usage 10 min -> balance 15", u.status === 200 && u.json.balanceMinutes === 15, u);
+  u = await call("/api/kid/usage", token, { minutes: 10, key });
+  check("same key is not charged twice", u.json.balanceMinutes === 15, u);
+  u = await call("/api/kid/usage", token, { minutes: 100, key: key + "-big" });
+  check("usage never goes below zero", u.json.balanceMinutes === 0, u);
+  const sync = await call("/api/kid/sync", token);
+  check(
+    "sync works and has balance, schedule and server clock",
+    sync.status === 200 && sync.json.balanceMinutes === 0 && Array.isArray(sync.json.schedule?.rules) && typeof sync.json.schedule?.timezone === "string" && !Number.isNaN(Date.parse(sync.json.serverNow)),
+    sync,
+  );
+  check("sync needs a token", (await call("/api/kid/sync", null)).status === 401);
+  check("spend endpoint is gone", (await call("/api/kid/spend", token, { minutes: 5 })).status === 404);
 
   // PIN lockout
   for (let i = 0; i < 5; i++) await call("/api/kid/unlock", token, { pin: "9999" });
