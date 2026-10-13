@@ -38,9 +38,10 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun loadState(t: String) {
+        UsageSync.run(ctx, refresh = false) // flush screen time used so far, so the balance below is current
         val s = Api.state(t)
+        UsageSync.apply(ctx, s.balanceMinutes, s.serverNow, s.schedule)
         state = s
-        Store.setSession(ctx, s.sessionEndsAt?.let { remainingMs(it, s.serverNow) } ?: 0)
         screen = Screen.Home
     }
 
@@ -98,13 +99,6 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             r.attemptsLeft > 0 -> "Not quite. Try again (${r.attemptsLeft} ${if (r.attemptsLeft == 1) "try" else "tries"} left)"
             else -> "Not quite. No minutes for this one."
         }
-        loadState(t)
-    }
-
-    fun spend(minutes: Int) = run {
-        message = null
-        val t = token ?: return@run
-        Store.setSession(ctx, Api.spend(t, minutes))
         loadState(t)
     }
 }

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, inArray, notExists, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, notExists, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   attempts,
@@ -7,7 +7,7 @@ import {
   homeworkSets,
   kids,
   questions,
-  screenSessions,
+  scheduleRules,
 } from "@/db/schema";
 import { checkExact } from "@/lib/check-answer";
 import type { DeviceContext } from "@/lib/device-auth";
@@ -15,8 +15,8 @@ import { earnableToday, MAX_ATTEMPTS, minutesForAttempt } from "@/lib/ledger";
 import { generateDeviceToken, isPairingValid } from "@/lib/pairing";
 import { isLocked, nextFailureState, verifyPin } from "@/lib/pin";
 
-export const MAX_SPEND_MINUTES = 240;
-const DAY_TZ = process.env.APP_TIMEZONE ?? "Europe/Stockholm";
+export const MAX_USAGE_REPORT_MINUTES = 240;
+export const DAY_TZ = process.env.APP_TIMEZONE ?? "Europe/Stockholm";
 
 /** Kids are only quizzed on question types that can be graded exactly. */
 const GRADABLE = ["multiple_choice", "numeric"];
@@ -69,7 +69,7 @@ export async function unlockWithPin(ctx: DeviceContext, pin: string, unlockMinut
   return { ok: true, unlockedUntil } satisfies UnlockResult;
 }
 
-async function balanceOf(kidId: string): Promise<number> {
+export async function balanceOf(kidId: string): Promise<number> {
   const [row] = await getDb()
     .select({ total: sql<number>`coalesce(sum(${creditLedger.deltaMinutes}), 0)::int` })
     .from(creditLedger)
@@ -92,16 +92,6 @@ async function earnedToday(kidId: string): Promise<number> {
       ),
     );
   return row.total;
-}
-
-async function activeSession(kidId: string) {
-  const [s] = await getDb()
-    .select()
-    .from(screenSessions)
-    .where(and(eq(screenSessions.kidId, kidId), gt(screenSessions.endsAt, new Date())))
-    .orderBy(desc(screenSessions.endsAt))
-    .limit(1);
-  return s ?? null;
 }
 
 /** Next unanswered question, without its answer key. */
@@ -142,21 +132,34 @@ async function nextQuestion(kidId: string) {
   return q ?? null;
 }
 
+/** What the phone's lock needs to decide: the balance, the schedule and the server clock. No PIN needed. */
+export async function kidSync(kidId: string) {
+  const [balance, rules] = await Promise.all([
+    balanceOf(kidId),
+    getDb().select().from(scheduleRules).where(eq(scheduleRules.kidId, kidId)),
+  ]);
+  return {
+    // Lets clients keep time from the server's clock, not the phone's.
+    serverNow: new Date().toISOString(),
+    balanceMinutes: balance,
+    schedule: {
+      timezone: DAY_TZ,
+      rules: rules.map((r) => ({ mode: r.mode, days: r.days, startMinute: r.startMinute, endMinute: r.endMinute })),
+    },
+  };
+}
+
 export async function kidState(kid: typeof kids.$inferSelect) {
-  const [balance, earned, session, question] = await Promise.all([
-    balanceOf(kid.id),
+  const [sync, earned, question] = await Promise.all([
+    kidSync(kid.id),
     earnedToday(kid.id),
-    activeSession(kid.id),
     nextQuestion(kid.id),
   ]);
   return {
-    // Lets clients measure the session from the server's clock, not the phone's.
-    serverNow: new Date().toISOString(),
+    ...sync,
     name: kid.name,
-    balanceMinutes: balance,
     minutesPerQuestion: kid.minutesPerQuestion,
     earnableTodayMinutes: earnableToday(earned, kid.minutesPerQuestion, kid.dailyCapMinutes),
-    session: session ? { endsAt: session.endsAt.toISOString() } : null,
     question,
   };
 }
@@ -220,45 +223,26 @@ export async function submitAnswer(
   return { ok: true, correct, earnedMinutes, attemptsLeft };
 }
 
-export type SpendResult =
-  | { ok: true; endsAt: Date }
-  | { ok: false; reason: "active_session" | "insufficient_balance" };
-
-/** Turns banked minutes into a screen session. The balance check and debit are one statement. */
-export async function startScreenTime(ctx: DeviceContext, minutes: number): Promise<SpendResult> {
-  const db = getDb();
-  const kidId = ctx.kid.id;
-  if (await activeSession(kidId)) return { ok: false, reason: "active_session" };
-
-  const debited = await db.execute(sql`
-    insert into credit_ledger (kid_id, delta_minutes, reason)
-    select ${kidId}::uuid, ${-minutes}, 'spend'
-    where (select coalesce(sum(delta_minutes), 0) from credit_ledger where kid_id = ${kidId}::uuid) >= ${minutes}
-    returning id
+/**
+ * Charges screen time the phone measured (whole minutes, screen on, blocked app in front).
+ * The charge is capped at the current balance and `key` makes a retried report free.
+ * Returns the balance after the charge.
+ */
+export async function recordUsage(kidId: string, minutes: number, key: string): Promise<number> {
+  await getDb().execute(sql`
+    insert into credit_ledger (kid_id, delta_minutes, reason, idempotency_key)
+    select ${kidId}::uuid, -least(${minutes}::int, bal.b), 'usage', ${key}
+    from (select coalesce(sum(delta_minutes), 0)::int as b from credit_ledger where kid_id = ${kidId}::uuid) bal
+    where bal.b > 0
+    on conflict (idempotency_key) do nothing
   `);
-  if (debited.rows.length === 0) return { ok: false, reason: "insufficient_balance" };
-
-  const endsAt = new Date(Date.now() + minutes * 60_000);
-  await db.insert(screenSessions).values({ kidId, deviceId: ctx.device.id, endsAt });
-  return { ok: true, endsAt };
+  return balanceOf(kidId);
 }
 
 /**
- * Parent-granted screen time, no homework needed. The minutes are added to the kid's bank as a
- * "bonus" (which does not count toward the daily earning cap). With `startNow` and no session
- * running, the minutes are also spent on the spot, starting a session on the kid's next refresh.
+ * Parent-granted screen time, no homework needed. The minutes go into the kid's bank as a
+ * "bonus", which does not count toward the daily earning cap.
  */
-export async function grantBonus(kidId: string, minutes: number, startNow: boolean) {
-  const db = getDb();
-  if (!startNow || (await activeSession(kidId))) {
-    await db.insert(creditLedger).values({ kidId, deltaMinutes: minutes, reason: "bonus" });
-    return { started: false };
-  }
-  const endsAt = new Date(Date.now() + minutes * 60_000);
-  await db.batch([
-    db.insert(creditLedger).values({ kidId, deltaMinutes: minutes, reason: "bonus" }),
-    db.insert(creditLedger).values({ kidId, deltaMinutes: -minutes, reason: "spend" }),
-    db.insert(screenSessions).values({ kidId, deviceId: null, endsAt }),
-  ]);
-  return { started: true };
+export async function grantBonus(kidId: string, minutes: number) {
+  await getDb().insert(creditLedger).values({ kidId, deltaMinutes: minutes, reason: "bonus" });
 }
