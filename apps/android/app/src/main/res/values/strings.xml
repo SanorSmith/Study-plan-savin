@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Study Plan</string>
+    <string name="service_label">Study Plan screen lock</string>
+    <string name="service_description">Locks other apps until your child has earned screen time. It only reads which app is on screen, never its content.</string>
+</resources>

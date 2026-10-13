@@ -13,5 +13,5 @@ export async function POST(request: Request) {
 
   const result = await startScreenTime(ctx, body.data.minutes);
   if (!result.ok) return Response.json({ error: result.reason }, { status: 409 });
-  return Response.json({ endsAt: result.endsAt });
+  return Response.json({ endsAt: result.endsAt, serverNow: new Date().toISOString() });
 }

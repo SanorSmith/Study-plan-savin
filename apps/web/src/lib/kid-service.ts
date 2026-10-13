@@ -150,6 +150,8 @@ export async function kidState(kid: typeof kids.$inferSelect) {
     nextQuestion(kid.id),
   ]);
   return {
+    // Lets clients measure the session from the server's clock, not the phone's.
+    serverNow: new Date().toISOString(),
     name: kid.name,
     balanceMinutes: balance,
     minutesPerQuestion: kid.minutesPerQuestion,
