@@ -3,15 +3,15 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { getDb } from "@/db";
 import { parents } from "@/db/schema";
+import { neonAuth } from "@/lib/neon-auth";
 
 /**
  * Returns the signed-in Neon Auth user, or null.
- * Wire this to the Neon Auth session once the project has Neon Auth enabled;
- * every parent page and action goes through requireParent() below.
+ * Every parent page and action goes through requireParent() below.
  */
 export async function getAuthUser(): Promise<{ id: string; email?: string } | null> {
-  // Until Neon Auth is connected nobody is signed in, so protected pages redirect to /login.
-  return null;
+  const { data: session } = await neonAuth.getSession();
+  return session?.user ? { id: session.user.id, email: session.user.email } : null;
 }
 
 /** The parent row for the signed-in user (created on first login). */

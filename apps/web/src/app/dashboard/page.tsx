@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { kids } from "@/db/schema";
 import { requireParent } from "@/lib/auth";
+import { signOut } from "../login/actions";
 
 async function KidList() {
   const parent = await requireParent();
@@ -28,6 +29,9 @@ async function KidList() {
           </li>
         ))}
       </ul>
+      <form action={signOut} className="mt-6">
+        <button className="text-sm text-gray-600 underline">Sign out</button>
+      </form>
     </main>
   );
 }
