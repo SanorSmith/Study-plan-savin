@@ -39,7 +39,7 @@ fun activeWindow(schedule: Schedule, nowMs: Long): Window? {
     return free
 }
 
-enum class LockReason { Scheduled, NoCredit }
+enum class LockReason { Scheduled, NoCredit, Protected }
 
 sealed interface Decision {
     data object Allow : Decision
@@ -50,9 +50,19 @@ sealed interface Decision {
 /**
  * What to do about the app in front, once per second while the screen is on.
  * Study Plan, the home screen, the dialer and system UI are never blocked or charged.
+ * Settings and the uninstall screens are parents-only until a parent approves them.
  */
-fun decide(paired: Boolean, allowedApp: Boolean, window: Window?, remainingSec: Long): Decision = when {
-    !paired || allowedApp -> Decision.Allow
+fun decide(
+    paired: Boolean,
+    allowedApp: Boolean,
+    protectedApp: Boolean,
+    approved: Boolean,
+    window: Window?,
+    remainingSec: Long,
+): Decision = when {
+    !paired -> Decision.Allow
+    protectedApp -> if (approved) Decision.Allow else Decision.Lock(LockReason.Protected, null)
+    allowedApp -> Decision.Allow
     window?.mode == Mode.Blocked -> Decision.Lock(LockReason.Scheduled, window.endMinute)
     window?.mode == Mode.Free -> Decision.Allow
     remainingSec > 0 -> Decision.Consume

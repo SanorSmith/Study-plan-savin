@@ -6,6 +6,7 @@ import {
   devices,
   homeworkSets,
   kids,
+  parents,
   questions,
   scheduleRules,
 } from "@/db/schema";
@@ -16,6 +17,7 @@ import { generateDeviceToken, isPairingValid } from "@/lib/pairing";
 import { isLocked, nextFailureState, verifyPin } from "@/lib/pin";
 
 export const MAX_USAGE_REPORT_MINUTES = 240;
+export const APPROVAL_MINUTES = 10;
 export const DAY_TZ = process.env.APP_TIMEZONE ?? "Europe/Stockholm";
 
 /** Kids are only quizzed on question types that can be graded exactly. */
@@ -134,14 +136,18 @@ async function nextQuestion(kidId: string) {
 
 /** What the phone's lock needs to decide: the balance, the schedule and the server clock. No PIN needed. */
 export async function kidSync(kidId: string) {
-  const [balance, rules] = await Promise.all([
+  const [balance, rules, [row]] = await Promise.all([
     balanceOf(kidId),
     getDb().select().from(scheduleRules).where(eq(scheduleRules.kidId, kidId)),
+    getDb().select({ approvedUntil: kids.settingsApprovedUntil }).from(kids).where(eq(kids.id, kidId)),
   ]);
+  const now = new Date();
   return {
     // Lets clients keep time from the server's clock, not the phone's.
-    serverNow: new Date().toISOString(),
+    serverNow: now.toISOString(),
     balanceMinutes: balance,
+    // While set, the phone lets Settings and uninstall screens open (a parent approved it).
+    approvedUntil: row?.approvedUntil && row.approvedUntil > now ? row.approvedUntil.toISOString() : null,
     schedule: {
       timezone: DAY_TZ,
       rules: rules.map((r) => ({ mode: r.mode, days: r.days, startMinute: r.startMinute, endMinute: r.endMinute })),
@@ -245,4 +251,48 @@ export async function recordUsage(kidId: string, minutes: number, key: string): 
  */
 export async function grantBonus(kidId: string, minutes: number) {
   await getDb().insert(creditLedger).values({ kidId, deltaMinutes: minutes, reason: "bonus" });
+}
+
+export type ParentUnlockResult =
+  | { ok: true; approvedUntil: Date }
+  | { ok: false; reason: "no_pin" | "locked" | "wrong_pin"; lockedUntil?: Date };
+
+/** Parent types their PIN on the kid's phone: opens Settings and uninstall screens for a few minutes. */
+export async function parentUnlock(kidId: string, pin: string): Promise<ParentUnlockResult> {
+  const db = getDb();
+  const now = new Date();
+  const [row] = await db
+    .select({ parent: parents })
+    .from(kids)
+    .innerJoin(parents, eq(parents.id, kids.parentId))
+    .where(eq(kids.id, kidId));
+  if (!row) return { ok: false, reason: "wrong_pin" };
+  const parent = row.parent;
+
+  if (!parent.approvalPinHash) return { ok: false, reason: "no_pin" };
+  if (isLocked(parent.approvalLockedUntil, now)) {
+    return { ok: false, reason: "locked", lockedUntil: parent.approvalLockedUntil! };
+  }
+  if (!(await verifyPin(pin, parent.approvalPinHash))) {
+    const next = nextFailureState(parent.approvalFailedAttempts, now);
+    await db
+      .update(parents)
+      .set({ approvalFailedAttempts: next.failedAttempts, approvalLockedUntil: next.lockedUntil })
+      .where(eq(parents.id, parent.id));
+    return next.lockedUntil
+      ? { ok: false, reason: "locked", lockedUntil: next.lockedUntil }
+      : { ok: false, reason: "wrong_pin" };
+  }
+
+  const approvedUntil = new Date(now.getTime() + APPROVAL_MINUTES * 60_000);
+  await db.update(parents).set({ approvalFailedAttempts: 0, approvalLockedUntil: null }).where(eq(parents.id, parent.id));
+  await db.update(kids).set({ settingsApprovedUntil: approvedUntil }).where(eq(kids.id, kidId));
+  return { ok: true, approvedUntil };
+}
+
+/** Parent grants (or, with null, revokes) approval from the dashboard. */
+export async function setApproval(kidId: string, minutes: number | null): Promise<Date | null> {
+  const until = minutes === null ? null : new Date(Date.now() + minutes * 60_000);
+  await getDb().update(kids).set({ settingsApprovedUntil: until }).where(eq(kids.id, kidId));
+  return until;
 }

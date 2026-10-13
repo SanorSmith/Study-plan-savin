@@ -12,8 +12,13 @@ describe("pin", () => {
     expect(await hashPin("1234")).not.toBe(await hashPin("1234"));
   });
 
+  it("accepts 4 to 6 digits (kid and parent PINs)", async () => {
+    expect(await verifyPin("123456", await hashPin("123456"))).toBe(true);
+  });
+
   it("rejects malformed PINs and stored values", async () => {
     await expect(hashPin("12")).rejects.toThrow();
+    await expect(hashPin("1234567")).rejects.toThrow();
     expect(await verifyPin("1234", "garbage")).toBe(false);
   });
 

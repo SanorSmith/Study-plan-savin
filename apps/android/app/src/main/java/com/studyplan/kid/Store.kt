@@ -58,16 +58,31 @@ object Store {
     }
 
     /** Takes a fresh balance, schedule and clock from the server. */
-    fun applySync(c: Context, balanceMinutes: Int, serverNow: String, schedule: Schedule) = synchronized(lock) {
-        prefs(c).edit().putLong("balanceSec", balanceMinutes * 60L).putString("schedule", scheduleToJson(schedule)).apply()
+    fun applySync(c: Context, balanceMinutes: Int, serverNow: String, schedule: Schedule, approvedUntil: String?) = synchronized(lock) {
+        prefs(c).edit()
+            .putLong("balanceSec", balanceMinutes * 60L)
+            .putString("schedule", scheduleToJson(schedule))
+            .putLong("approvedUntilMs", approvedUntil?.let { java.time.Instant.parse(it).toEpochMilli() } ?: 0)
+            .apply()
         anchor(c, serverNow)
     }
 
     /** Takes only the schedule and clock, used while a usage report is unconfirmed and the balance would be ambiguous. */
-    fun applyScheduleOnly(c: Context, serverNow: String, schedule: Schedule) = synchronized(lock) {
-        prefs(c).edit().putString("schedule", scheduleToJson(schedule)).apply()
+    fun applyScheduleOnly(c: Context, serverNow: String, schedule: Schedule, approvedUntil: String?) = synchronized(lock) {
+        prefs(c).edit()
+            .putString("schedule", scheduleToJson(schedule))
+            .putLong("approvedUntilMs", approvedUntil?.let { java.time.Instant.parse(it).toEpochMilli() } ?: 0)
+            .apply()
         anchor(c, serverNow)
     }
+
+    /** A parent typed their PIN: Settings and uninstall screens are open until then (server time). */
+    fun setApproved(c: Context, approvedUntil: String, serverNow: String) = synchronized(lock) {
+        prefs(c).edit().putLong("approvedUntilMs", java.time.Instant.parse(approvedUntil).toEpochMilli()).apply()
+        anchor(c, serverNow)
+    }
+
+    fun isApproved(c: Context): Boolean = prefs(c).getLong("approvedUntilMs", 0) > nowMs(c)
 
     fun addUsage(c: Context, seconds: Long) = synchronized(lock) {
         val p = prefs(c)

@@ -40,7 +40,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun loadState(t: String) {
         UsageSync.run(ctx, refresh = false) // flush screen time used so far, so the balance below is current
         val s = Api.state(t)
-        UsageSync.apply(ctx, s.balanceMinutes, s.serverNow, s.schedule)
+        UsageSync.apply(ctx, s.balanceMinutes, s.serverNow, s.schedule, s.approvedUntil)
         state = s
         screen = Screen.Home
     }

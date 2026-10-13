@@ -16,15 +16,14 @@ object UsageSync {
     suspend fun run(c: Context, refresh: Boolean) = mutex.withLock {
         val token = Store.token(c) ?: return@withLock
         try {
-            var report = Store.inflight(c) ?: Store.startInflight(c)
+            val report = Store.inflight(c) ?: Store.startInflight(c)
             if (report != null) {
                 val r = Api.usage(token, report.minutes, report.key)
                 Store.finishInflight(c, r.balanceMinutes, r.serverNow)
-                report = null
             }
             if (refresh) {
                 val s = Api.sync(token)
-                Store.applySync(c, s.balanceMinutes, s.serverNow, s.schedule)
+                Store.applySync(c, s.balanceMinutes, s.serverNow, s.schedule, s.approvedUntil)
             }
         } catch (e: ApiException) {
             if (e.status == 401) Store.setToken(c, null) // the parent removed this device
@@ -35,11 +34,11 @@ object UsageSync {
     }
 
     /** Applies a state fetched by the app UI. */
-    suspend fun apply(c: Context, balanceMinutes: Int, serverNow: String, schedule: Schedule) = mutex.withLock {
+    suspend fun apply(c: Context, balanceMinutes: Int, serverNow: String, schedule: Schedule, approvedUntil: String?) = mutex.withLock {
         if (Store.inflight(c) == null) {
-            Store.applySync(c, balanceMinutes, serverNow, schedule)
+            Store.applySync(c, balanceMinutes, serverNow, schedule, approvedUntil)
         } else {
-            Store.applyScheduleOnly(c, serverNow, schedule)
+            Store.applyScheduleOnly(c, serverNow, schedule, approvedUntil)
         }
     }
 }

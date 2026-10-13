@@ -24,9 +24,12 @@ data class KidState(
     val earnableTodayMinutes: Int,
     val question: Question?,
     val schedule: Schedule,
+    val approvedUntil: String?,
 )
 
-data class SyncData(val balanceMinutes: Int, val serverNow: String, val schedule: Schedule)
+data class SyncData(val balanceMinutes: Int, val serverNow: String, val schedule: Schedule, val approvedUntil: String?)
+
+data class ApprovalResult(val approvedUntil: String, val serverNow: String)
 
 data class UsageResult(val balanceMinutes: Int, val serverNow: String)
 
@@ -88,6 +91,7 @@ object Api {
                 )
             },
             schedule = scheduleFromJson(j.getJSONObject("schedule")),
+            approvedUntil = if (j.isNull("approvedUntil")) null else j.getString("approvedUntil"),
         )
     }
 
@@ -99,12 +103,23 @@ object Api {
     /** Balance, schedule and server clock for the lock. Needs no PIN. */
     suspend fun sync(token: String): SyncData {
         val j = call("GET", "/api/kid/sync", token)
-        return SyncData(j.getInt("balanceMinutes"), j.getString("serverNow"), scheduleFromJson(j.getJSONObject("schedule")))
+        return SyncData(
+            j.getInt("balanceMinutes"),
+            j.getString("serverNow"),
+            scheduleFromJson(j.getJSONObject("schedule")),
+            if (j.isNull("approvedUntil")) null else j.getString("approvedUntil"),
+        )
     }
 
     /** Reports screen time used. Sending the same [key] again never charges twice. */
     suspend fun usage(token: String, minutes: Int, key: String): UsageResult {
         val j = call("POST", "/api/kid/usage", token, JSONObject().put("minutes", minutes).put("key", key))
         return UsageResult(j.getInt("balanceMinutes"), j.getString("serverNow"))
+    }
+
+    /** A parent types their PIN on the phone; Settings and uninstall screens open for a few minutes. */
+    suspend fun parentUnlock(token: String, pin: String): ApprovalResult {
+        val j = call("POST", "/api/kid/parent-unlock", token, JSONObject().put("pin", pin))
+        return ApprovalResult(j.getString("approvedUntil"), j.getString("serverNow"))
     }
 }

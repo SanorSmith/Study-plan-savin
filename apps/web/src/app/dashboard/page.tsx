@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { attempts, creditLedger, kids } from "@/db/schema";
 import { requireParent } from "@/lib/auth";
 import { signOut } from "../login/actions";
+import { setParentPin } from "./actions";
 
 async function KidList() {
   const parent = await requireParent();
@@ -57,6 +58,26 @@ async function KidList() {
           </li>
         ))}
       </ul>
+      <section className="mt-8">
+        <h2 className="mb-1 text-xl font-semibold">Parent PIN</h2>
+        <p className="mb-3 text-sm text-gray-600">
+          A 6-digit PIN you type on a kid&apos;s phone to open Settings or uninstall the app.{" "}
+          {parent.approvalPinHash ? "A PIN is set. Enter a new one to change it." : "No PIN is set yet."}
+        </p>
+        <form action={setParentPin} className="flex gap-2">
+          <input
+            name="pin"
+            inputMode="numeric"
+            pattern="\\d{6}"
+            maxLength={6}
+            required
+            placeholder="6 digits"
+            autoComplete="off"
+            className="w-32 rounded border p-2"
+          />
+          <button className="rounded border px-4 py-2">{parent.approvalPinHash ? "Change PIN" : "Set PIN"}</button>
+        </form>
+      </section>
       <form action={signOut} className="mt-6">
         <button className="text-sm text-gray-600 underline">Sign out</button>
       </form>
