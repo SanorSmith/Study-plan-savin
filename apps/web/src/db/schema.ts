@@ -36,6 +36,8 @@ export const kids = pgTable("kids", {
   pinLockedUntil: timestamp("pin_locked_until"),
   // While in the future, the kid's phone allows Settings and uninstall screens (a parent approved it).
   settingsApprovedUntil: timestamp("settings_approved_until"),
+  // When on, the kid may choose AI checking for a paper and the minutes are added straight away.
+  aiCheckEnabled: boolean("ai_check_enabled").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -150,7 +152,7 @@ export const scheduleRules = pgTable("schedule_rules", {
 });
 
 // A photo of a finished paper, read by the AI and waiting for a parent to confirm before minutes are awarded.
-// The photo itself is not stored; only what the AI read from it.
+// The photos are kept for a short while so a parent can look at them (see paper_images).
 export const paperSubmissions = pgTable("paper_submissions", {
   id: uuid("id").primaryKey().defaultRandom(),
   kidId: uuid("kid_id")
@@ -161,6 +163,10 @@ export const paperSubmissions = pgTable("paper_submissions", {
     .references(() => homeworkSets.id, { onDelete: "cascade" }),
   status: text("status").notNull().default("pending"), // pending | approved | rejected
   submittedBy: text("submitted_by").notNull(), // kid | parent
+  mode: text("mode").notNull().default("parent"), // ai (checked by AI, credited at once) | parent (a parent checks)
+  aiRead: boolean("ai_read").notNull().default(false), // true once the AI has read the photos
+  autoApproved: boolean("auto_approved").notNull().default(false),
+  awardedMinutes: integer("awarded_minutes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   reviewedAt: timestamp("reviewed_at"),
 });
@@ -182,4 +188,20 @@ export const paperAnswers = pgTable(
     note: text("note"),
   },
   (t) => [uniqueIndex("paper_answers_one_per_question").on(t.submissionId, t.questionId)],
+);
+
+// The photos of a paper, so a parent can see what was sent. Kept as base64 text and deleted after 14 days.
+export const paperImages = pgTable(
+  "paper_images",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    submissionId: uuid("submission_id")
+      .notNull()
+      .references(() => paperSubmissions.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    contentType: text("content_type").notNull(),
+    dataBase64: text("data_base64").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("paper_images_one_per_position").on(t.submissionId, t.position)],
 );

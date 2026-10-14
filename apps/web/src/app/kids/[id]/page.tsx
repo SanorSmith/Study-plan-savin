@@ -10,7 +10,7 @@ import { PageLoading, ParentShell } from "@/components/ParentShell";
 import { requireParent } from "@/lib/auth";
 import { APPROVAL_MINUTES } from "@/lib/kid-service";
 import { isPairingValid } from "@/lib/pairing";
-import { pendingSubmissions } from "@/lib/paper-service";
+import { pendingSubmissions, PHOTO_RETENTION_DAYS, recentSubmissions } from "@/lib/paper-service";
 import { kidOverview, recentActivity } from "@/lib/results";
 import { DAY_LABELS, daysLabel, formatMinute } from "@/lib/schedule-input";
 import { KidFields } from "../KidFields";
@@ -22,6 +22,7 @@ import {
   grantApproval,
   revokeApproval,
   resetBank,
+  setAiCheck,
   updateKid,
   withdrawFromBank,
 } from "../actions";
@@ -48,12 +49,13 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
     .where(and(eq(kids.id, id), eq(kids.parentId, parent.id)));
   if (!kid) notFound();
 
-  const [list, activity, rules, overview, papers] = await Promise.all([
+  const [list, activity, rules, overview, papers, recentPapers] = await Promise.all([
     db.select().from(devices).where(eq(devices.kidId, kid.id)).orderBy(desc(devices.createdAt)),
     recentActivity(kid.id),
     db.select().from(scheduleRules).where(eq(scheduleRules.kidId, kid.id)).orderBy(scheduleRules.startMinute),
     kidOverview(kid.id),
     pendingSubmissions(kid.id),
+    recentSubmissions(kid.id),
   ]);
   const now = new Date();
   const paired = list.filter((d) => d.tokenHash).length;
@@ -220,6 +222,55 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
               </ul>
             ) : (
               <p className="text-sm text-slate-500">Nothing yet.</p>
+            )}
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Paper checking"
+              description={`When ${kid.name} does homework on paper and sends a photo, ${kid.name} chooses who checks it. You always see the photos for ${PHOTO_RETENTION_DAYS} days.`}
+            />
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-3">
+              <div className="text-sm">
+                <p className="font-medium">
+                  AI checking is{" "}
+                  <Badge tone={kid.aiCheckEnabled ? "good" : "neutral"}>{kid.aiCheckEnabled ? "On" : "Off"}</Badge>
+                </p>
+                <p className="mt-1 max-w-md text-slate-600">
+                  {kid.aiCheckEnabled
+                    ? `${kid.name} can choose "Check with AI": the AI reads the paper and adds the minutes straight away. The photos are sent to the AI service.`
+                    : `Every paper is checked by you. ${kid.name} can still send a photo, but it goes only to you and is not shown to any AI unless you ask for suggestions.`}
+                </p>
+              </div>
+              <form action={setAiCheck.bind(null, kid.id, !kid.aiCheckEnabled)}>
+                <button className={kid.aiCheckEnabled ? btn.secondary : btn.primary}>{kid.aiCheckEnabled ? "Turn off" : "Turn on"}</button>
+              </form>
+            </div>
+
+            {recentPapers.length > 0 && (
+              <>
+                <h3 className="mb-2 mt-5 text-sm font-medium text-slate-700">Recent papers</h3>
+                <ul className="divide-y divide-slate-100 text-sm">
+                  {recentPapers.map((r) => (
+                    <li key={r.id} className="flex items-center justify-between gap-3 py-2">
+                      <span>
+                        {r.subject}
+                        <span className="ml-2 text-xs text-slate-500">{fmtWhen.format(r.createdAt)}</span>
+                      </span>
+                      <span className="flex items-center gap-3">
+                        {r.status === "rejected" ? (
+                          <Badge>Discarded</Badge>
+                        ) : (
+                          <Badge tone="good">{r.autoApproved ? "Checked by AI" : "You approved"}: +{r.awardedMinutes ?? 0} min</Badge>
+                        )}
+                        <Link href={`/kids/${kid.id}/papers/${r.id}`} className={btn.link}>
+                          Open
+                        </Link>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </Card>
 
