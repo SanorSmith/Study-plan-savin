@@ -1,11 +1,22 @@
 # Study Plan - Android kid app
 
 Native Kotlin and Jetpack Compose app. The kid pairs the phone with a code from the parent, enters a PIN,
-answers homework questions to earn minutes, and spends them as screen time. When no screen time is left,
-an accessibility service sends the kid home and shows a "Homework first" screen over every app except the
-allowed ones (Study Plan, home screen, dialer, keyboard, system UI).
+and answers homework questions to earn minutes. Minutes are then used automatically while the screen is on
+and another app is open. A parent can set locked and free time windows.
 
-It uses the same API as the web kid page (`/api/device/pair`, `/api/kid/*`) with the device token as a bearer token.
+## How the lock works
+
+No Accessibility service. A foreground service asks Android which app is in front (package name only,
+through Usage access) and, when the phone should be locked, draws a full-screen cover over that app
+(Display over other apps). The cover has one button that opens Study Plan (homework, or the parent PIN).
+
+- Study Plan, the home screen, the dialer, keyboards and system UI are never blocked or charged.
+- Other apps use credit while the screen is on. Locking the screen stops the countdown.
+- A parent's schedule can lock the phone (bedtime, school) or make it free (no credit used).
+- Settings and the system installer screens are parents-only: a parent types the parent PIN on the phone, or
+  approves from the dashboard (10 minutes).
+
+It talks to the same API as the web kid page (`/api/device/pair`, `/api/kid/*`) with the device token as a bearer token.
 
 ## Build
 
@@ -31,18 +42,18 @@ The bypass secret is compiled into the APK, so use it for local testing only and
 
 ## Install and set up
 
-1. `adb install -r app/build/outputs/apk/debug/app-debug.apk`
-2. Parent: kid page, Devices, choose Android, New pairing code (valid 15 minutes).
-3. Phone: open Study Plan, enter the code, then the kid's PIN.
-4. Turn on the lock: Settings, Accessibility, "Study Plan screen lock".
-   On Android 13 and newer, a sideloaded app first needs Settings, Apps, Study Plan, three-dot menu,
-   "Allow restricted settings".
+1. Install the APK (`adb install -r app-debug.apk`, or download it from the GitHub release).
+2. **Open Study Plan and grant the two permissions first** (a parent, once), because Settings becomes parents-only after pairing:
+   - Usage access
+   - Display over other apps
+   Allow notifications too, so the "Study Plan is on" notice shows. The lock works without it.
+3. Parent: kid page, Phones, choose Android, New code (valid 15 minutes).
+4. Phone: enter the code, then the kid's PIN.
 
-## Known limits (MVP)
+## Known limits
 
-- The lock is an accessibility service, not a device-owner kiosk. A kid who can open Settings during a
-  running session can switch the service off or uninstall the app. Settings is blocked while locked, not during a session.
-  Closing this gap needs Device Owner or Device Admin enrollment.
-- A reboot ends a running session (the lock re-engages and the kid re-opens the app).
-- The session clock uses the server's time and the phone's monotonic clock, so changing the phone's date does not extend it.
-- Not yet tested on a physical phone or emulator.
+- A kid who gets into Settings during an approved window, or uses Safe mode or a PC with USB debugging, can switch the lock off.
+- The Play Store and Galaxy Store can still be used to uninstall apps; they are not guarded.
+- A reboot restarts the service, but there can be a few seconds of no lock while the phone starts.
+- The cover appears within about a second of a blocked app opening, so a brief flash of the app is possible.
+- Not yet verified on a physical phone.
