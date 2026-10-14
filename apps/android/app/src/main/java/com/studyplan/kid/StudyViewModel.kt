@@ -1,13 +1,17 @@
 package com.studyplan.kid
 
 import android.app.Application
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class Screen { Loading, Pair, Pin, Home }
 
@@ -64,9 +68,13 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 }
             } catch (e: org.json.JSONException) {
                 message = "The server sent something unexpected. Try again later."
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: IOException) {
                 message = "No connection. Check the internet and try again."
                 if (screen == Screen.Loading) screen = Screen.Home
+            } catch (e: Exception) {
+                message = "Something went wrong. Try again."
             } finally {
                 busy = false
             }
@@ -100,5 +108,16 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             else -> "Not quite. No minutes for this one."
         }
         loadState(t)
+    }
+
+    /** Sends photos of the finished paper; a parent checks them and the minutes arrive after. */
+    fun sendPaper(setId: String, photos: List<Uri>, onSent: () -> Unit) = run {
+        message = null
+        val t = token ?: return@run
+        val jpegs = withContext(Dispatchers.IO) { photos.map { ImageShrink.toJpeg(ctx, it) } }
+        Api.uploadPaper(t, setId, jpegs)
+        message = "Sent! A parent will check it, then your minutes arrive."
+        onSent()
+        withContext(Dispatchers.IO) { ctx.cacheDir.resolve("paper").listFiles()?.forEach { it.delete() } }
     }
 }

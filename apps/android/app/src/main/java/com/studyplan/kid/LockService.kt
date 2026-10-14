@@ -45,6 +45,7 @@ class LockService : Service() {
     private var lastRefreshAt = 0L
     private var allowed: Set<String> = emptySet()
     private var allowedAt = 0L
+    private var camera: Set<String> = emptySet()
 
     private val tick = object : Runnable {
         override fun run() {
@@ -122,11 +123,12 @@ class LockService : Service() {
         val now = SystemClock.elapsedRealtime()
         if (now - allowedAt > ALLOWED_TTL_MS || allowed.isEmpty()) {
             allowed = LockPolicy.allowedPackages(this)
+            camera = LockPolicy.cameraPackages(this)
             allowedAt = now
         }
         val decision = decide(
             paired = true,
-            allowedApp = pkg == null || pkg in allowed,
+            allowedApp = pkg == null || pkg in allowed || (pkg in camera && Store.cameraAllowed(this)),
             protectedApp = pkg != null && pkg in LockPolicy.protectedPackages,
             approved = Store.isApproved(this),
             window = activeWindow(Store.schedule(this), Store.nowMs(this)),

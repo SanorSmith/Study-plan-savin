@@ -122,6 +122,15 @@ object Store {
         anchor(c, serverNow)
     }
 
+    // --- camera allowance ----------------------------------------------------------------------
+
+    /** The camera and photo picker are blocked apps like any other, so they are let through for a few minutes while a paper is photographed. */
+    fun allowCameraFor(c: Context, ms: Long = 5 * 60_000L) {
+        prefs(c).edit().putLong("cameraUntil", SystemClock.elapsedRealtime() + ms).apply()
+    }
+
+    fun cameraAllowed(c: Context): Boolean = prefs(c).getLong("cameraUntil", 0) > SystemClock.elapsedRealtime()
+
     // --- schedule --------------------------------------------------------------------------------
 
     fun schedule(c: Context): Schedule {

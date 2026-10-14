@@ -16,6 +16,8 @@ data class Question(
     val subject: String,
 )
 
+data class PaperSet(val id: String, val subject: String)
+
 data class KidState(
     val serverNow: String,
     val name: String,
@@ -25,6 +27,7 @@ data class KidState(
     val question: Question?,
     val schedule: Schedule,
     val approvedUntil: String?,
+    val paperSets: List<PaperSet>,
 )
 
 data class SyncData(val balanceMinutes: Int, val serverNow: String, val schedule: Schedule, val approvedUntil: String?)
@@ -37,19 +40,31 @@ data class AnswerResult(val correct: Boolean, val earnedMinutes: Int, val attemp
 
 /** Talks to the Study Plan web API with the device token as a bearer token. */
 object Api {
-    private suspend fun call(method: String, path: String, token: String?, body: JSONObject? = null): JSONObject =
+    private suspend fun call(
+        method: String,
+        path: String,
+        token: String?,
+        body: JSONObject? = null,
+        raw: Pair<String, ByteArray>? = null, // content type and bytes, for uploads
+        readTimeoutMs: Int = 15_000,
+    ): JSONObject =
         withContext(Dispatchers.IO) {
             val conn = URL(BuildConfig.API_BASE_URL + path).openConnection() as HttpURLConnection
             try {
                 conn.requestMethod = method
                 conn.connectTimeout = 10_000
-                conn.readTimeout = 15_000
+                conn.readTimeout = readTimeoutMs
                 conn.setRequestProperty("accept", "application/json")
                 if (BuildConfig.API_BYPASS.isNotEmpty()) {
                     conn.setRequestProperty("x-vercel-protection-bypass", BuildConfig.API_BYPASS)
                 }
                 token?.let { conn.setRequestProperty("authorization", "Bearer $it") }
-                if (body != null) {
+                if (raw != null) {
+                    conn.doOutput = true
+                    conn.setFixedLengthStreamingMode(raw.second.size)
+                    conn.setRequestProperty("content-type", raw.first)
+                    conn.outputStream.use { it.write(raw.second) }
+                } else if (body != null) {
                     conn.doOutput = true
                     conn.setRequestProperty("content-type", "application/json")
                     conn.outputStream.use { it.write(body.toString().toByteArray()) }
@@ -92,6 +107,9 @@ object Api {
             },
             schedule = scheduleFromJson(j.getJSONObject("schedule")),
             approvedUntil = if (j.isNull("approvedUntil")) null else j.getString("approvedUntil"),
+            paperSets = j.optJSONArray("paperSets")?.let { a ->
+                List(a.length()) { i -> PaperSet(a.getJSONObject(i).getString("id"), a.getJSONObject(i).getString("subject")) }
+            } ?: emptyList(),
         )
     }
 
@@ -121,5 +139,16 @@ object Api {
     suspend fun parentUnlock(token: String, pin: String): ApprovalResult {
         val j = call("POST", "/api/kid/parent-unlock", token, JSONObject().put("pin", pin))
         return ApprovalResult(j.getString("approvedUntil"), j.getString("serverNow"))
+    }
+
+    /** Sends photos of a finished paper. The server reads them and a parent confirms before minutes are added. */
+    suspend fun uploadPaper(token: String, setId: String, jpegs: List<ByteArray>) {
+        val boundary = "----studyplan" + System.nanoTime()
+        val body = multipartBody(
+            boundary,
+            mapOf("setId" to setId),
+            jpegs.mapIndexed { i, bytes -> FilePart("image", "page${i + 1}.jpg", "image/jpeg", bytes) },
+        )
+        call("POST", "/api/kid/paper", token, raw = "multipart/form-data; boundary=$boundary" to body, readTimeoutMs = 90_000)
     }
 }

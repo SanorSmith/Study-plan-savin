@@ -24,6 +24,14 @@
         <intent>
             <action android:name="android.intent.action.DIAL" />
         </intent>
+        <!-- The camera and photo pickers, which stay usable while a paper is being photographed. -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+            <data android:mimeType="image/*" />
+        </intent>
     </queries>
 
     <application
@@ -60,6 +68,17 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Parental screen time control: shows a lock screen over apps when the child has no screen time left." />
         </service>
+
+        <!-- Gives the camera app a place to save the photo of the paper. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <receiver
             android:name=".BootReceiver"

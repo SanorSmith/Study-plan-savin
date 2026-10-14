@@ -4,6 +4,16 @@ Native Kotlin and Jetpack Compose app. The kid pairs the phone with a code from 
 and answers homework questions to earn minutes. Minutes are then used automatically while the screen is on
 and another app is open. A parent can set locked and free time windows.
 
+## Homework on paper
+
+When a kid has homework with unanswered questions, the home screen shows **Did it on paper?**. The kid takes up to 3 photos
+of the finished paper (or picks them from the gallery) and taps **Send my paper**. Each photo is shrunk to 2000 px and sent to
+`POST /api/kid/paper`. The server reads the handwriting with AI and a parent confirms before any minutes are added. The kid never
+sees what the AI read or the answer key.
+
+The camera and photo picker are blocked apps like any other, so tapping **Take a photo** lets them open for 5 minutes
+(`Store.allowCameraFor`), even with no minutes left. Opening the camera any other time is blocked and charged as usual.
+
 ## How the lock works
 
 No Accessibility service. A foreground service asks Android which app is in front (package name only,
