@@ -5,9 +5,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb } from "@/db";
-import { kids } from "@/db/schema";
+import { kids, paperSubmissions } from "@/db/schema";
 import { requireParent } from "@/lib/auth";
-import { approveSubmission, rejectSubmission } from "@/lib/paper-service";
+import { gradePaper, PaperGradingError } from "@/lib/paper-grading";
+import { applyAiResults, approveSubmission, imagesOf, questionsForSet, rejectSubmission } from "@/lib/paper-service";
+import { PAPER_LIMIT } from "@/lib/paper-intake";
+import { rateLimit } from "@/lib/rate-limit";
 
 async function ownedKid(kidId: string) {
   const parent = await requireParent();
@@ -39,4 +42,32 @@ export async function rejectPaper(kidId: string, submissionId: string) {
   revalidatePath(`/kids/${kidId}`);
   revalidatePath("/dashboard");
   redirect(`/kids/${kidId}`);
+}
+
+export type AiHelpState = { error?: string } | null;
+
+/** The parent asks the AI to read the stored photos and suggest which answers are right. Only then are the photos sent to the AI. */
+export async function readPaperWithAi(kidId: string, submissionId: string): Promise<AiHelpState> {
+  const kid = await ownedKid(kidId);
+  const id = SubmissionId.parse(submissionId);
+  const limit = await rateLimit(`paper:${kid.parentId}`, PAPER_LIMIT);
+  if (!limit.allowed) return { error: "Too many requests. Try again later." };
+
+  const [submission] = await getDb()
+    .select({ setId: paperSubmissions.setId })
+    .from(paperSubmissions)
+    .where(and(eq(paperSubmissions.id, id), eq(paperSubmissions.kidId, kid.id), eq(paperSubmissions.status, "pending")));
+  if (!submission) return { error: "This paper is not waiting for review" };
+
+  const images = await imagesOf(id);
+  if (images.length === 0) return { error: "The photos were deleted, so the AI cannot read them" };
+  try {
+    const results = await gradePaper(images, await questionsForSet(submission.setId));
+    await applyAiResults(id, kid.id, results);
+  } catch (e) {
+    if (e instanceof PaperGradingError) return { error: e.message };
+    throw e;
+  }
+  revalidatePath(`/kids/${kidId}/papers/${id}`);
+  return null;
 }

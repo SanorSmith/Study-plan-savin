@@ -89,6 +89,13 @@ try {
   check("paper upload refuses non-image files", (await paperCall(token, { setId: set.id, image: txt })) === 415);
   check("paper upload needs a photo", (await paperCall(token, { setId: set.id })) === 400);
   check("state lists the homework a paper can be sent for", Array.isArray(st.json.paperSets) && st.json.paperSets.some((x: { id: string }) => x.id === set.id), st.json.paperSets);
+  check("state says AI checking is off by default", st.json.aiCheckEnabled === false, st.json.aiCheckEnabled);
+  check("paper upload refuses an unknown mode", (await paperCall(token, { setId: set.id, image: png, mode: "robot" })) === 400);
+  check("choosing AI is refused while a parent has it off", (await paperCall(token, { setId: set.id, image: png, mode: "ai" })) === 403);
+  check("choosing a parent check works without any AI", (await paperCall(token, { setId: set.id, image: png, mode: "parent" })) === 200);
+  const queued = await sql`select count(*)::int as n, bool_or(ai_read) as ai_read from paper_submissions where kid_id = ${kid.id}`;
+  const photos = await sql`select count(*)::int as n from paper_images pi join paper_submissions ps on ps.id = pi.submission_id where ps.kid_id = ${kid.id}`;
+  check("that paper waits for the parent, unread by the AI, with its photo kept", queued[0].n === 1 && queued[0].ai_read === false && photos[0].n === 1, { queued, photos });
 
   // answers: 3 tries per question, retry earns half
   let a = await call("/api/kid/answer", token, { questionId: ids[0], answer: "5" });

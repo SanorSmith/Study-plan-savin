@@ -8,7 +8,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const SetId = z.uuid();
 
-/** A parent photographs a finished paper. The AI reads it and the result waits for the parent's review. */
+/** A parent photographs a finished paper. The AI reads it as a suggestion and the parent reviews it before any minutes are added. */
 export async function POST(request: Request) {
   const user = await getAuthUser();
   if (!user) return Response.json({ error: "sign in required" }, { status: 401 });
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
   // The homework set must belong to one of this parent's kids.
   const [row] = await getDb()
-    .select({ kidId: kids.id })
+    .select({ kid: kids })
     .from(homeworkSets)
     .innerJoin(kids, eq(kids.id, homeworkSets.kidId))
     .innerJoin(parents, eq(parents.id, kids.parentId))
@@ -29,8 +29,15 @@ export async function POST(request: Request) {
   if (!row) return Response.json({ error: "homework not found" }, { status: 404 });
 
   try {
-    const submissionId = await processPaper({ kidId: row.kidId, setId: setId.data, form, submittedBy: "parent" });
-    return Response.json({ submissionId, kidId: row.kidId });
+    const outcome = await processPaper({
+      kid: row.kid,
+      setId: setId.data,
+      form,
+      submittedBy: "parent",
+      mode: "parent",
+      readWithAi: true,
+    });
+    return Response.json({ submissionId: outcome.submissionId, kidId: row.kid.id });
   } catch (e) {
     if (e instanceof IntakeError) return Response.json({ error: e.message }, { status: e.status });
     throw e;

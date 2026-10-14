@@ -150,3 +150,10 @@ export async function resetBank(kidId: string) {
   revalidatePath(`/kids/${kidId}`);
   revalidatePath("/dashboard");
 }
+
+/** Parent turns AI paper checking on or off for a kid. Off means every paper is checked by a parent. */
+export async function setAiCheck(kidId: string, enabled: boolean) {
+  const kid = await ownedKid(kidId);
+  await getDb().update(kids).set({ aiCheckEnabled: enabled }).where(eq(kids.id, kid.id));
+  revalidatePath(`/kids/${kidId}`);
+}

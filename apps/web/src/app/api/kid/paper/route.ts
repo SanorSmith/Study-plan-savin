@@ -3,14 +3,16 @@ import { z } from "zod";
 import { getDb } from "@/db";
 import { homeworkSets } from "@/db/schema";
 import { getDevice, isUnlocked } from "@/lib/device-auth";
-import { IntakeError, PAPER_LIMIT, processPaper } from "@/lib/paper-intake";
+import { CheckMode, IntakeError, PAPER_LIMIT, processPaper } from "@/lib/paper-intake";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const SetId = z.uuid();
 
 /**
- * A kid photographs their finished paper. The AI reads it and a parent confirms before any minutes are
- * awarded. The kid only hears that it was sent, never what the AI read or the answer key.
+ * A kid sends a photo of their finished paper and chooses who checks it:
+ * - mode "ai" (only if a parent turned AI checking on): the AI checks it and the minutes are added at once.
+ * - mode "parent": a parent looks at the photos and checks it by hand. The photos are not sent to any AI.
+ * The kid never sees the answer key.
  */
 export async function POST(request: Request) {
   const ctx = await getDevice();
@@ -22,6 +24,11 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const setId = SetId.safeParse(form.get("setId"));
   if (!setId.success) return Response.json({ error: "setId is required" }, { status: 400 });
+  const mode = CheckMode.safeParse(form.get("mode") ?? "parent");
+  if (!mode.success) return Response.json({ error: "mode must be ai or parent" }, { status: 400 });
+  if (mode.data === "ai" && !ctx.kid.aiCheckEnabled) {
+    return Response.json({ error: "AI checking is turned off. Choose check with parent." }, { status: 403 });
+  }
 
   const [set] = await getDb()
     .select({ id: homeworkSets.id })
@@ -30,8 +37,18 @@ export async function POST(request: Request) {
   if (!set) return Response.json({ error: "homework not found" }, { status: 404 });
 
   try {
-    await processPaper({ kidId: ctx.kid.id, setId: set.id, form, submittedBy: "kid" });
-    return Response.json({ sent: true });
+    const outcome = await processPaper({
+      kid: ctx.kid,
+      setId: set.id,
+      form,
+      submittedBy: "kid",
+      mode: mode.data,
+      readWithAi: mode.data === "ai",
+    });
+    if (outcome.kind === "ai") {
+      return Response.json({ mode: "ai", correct: outcome.correct, total: outcome.total, minutes: outcome.minutes });
+    }
+    return Response.json({ mode: "parent", sent: true });
   } catch (e) {
     if (e instanceof IntakeError) return Response.json({ error: e.message }, { status: e.status });
     throw e;

@@ -21,6 +21,7 @@ type State = {
   question: Question | null;
   schedule: { timezone: string; rules: ScheduleRule[] };
   paperSets: { id: string; subject: string }[];
+  aiCheckEnabled: boolean;
 };
 type View = "loading" | "pair" | "pin" | "home";
 type Feedback = { text: string; tone: "good" | "info" | "bad" };
@@ -229,30 +230,38 @@ function Home({ state, clockOffset, refresh }: { state: State; clockOffset: numb
         <Card className="text-center text-sm text-slate-600">No homework waiting. Ask a parent to add some.</Card>
       )}
 
-      {state.paperSets.length > 0 && <PaperCard sets={state.paperSets} />}
+      {state.paperSets.length > 0 && <PaperCard sets={state.paperSets} aiCheckEnabled={state.aiCheckEnabled} onChanged={refresh} />}
     </div>
   );
 }
 
-/** Done the homework on paper? Photograph it. A parent checks it and the minutes arrive after. */
-function PaperCard({ sets }: { sets: { id: string; subject: string }[] }) {
+/** Done the homework on paper? Photograph it, then choose who checks it: the AI (minutes at once) or a parent. */
+function PaperCard({ sets, aiCheckEnabled, onChanged }: { sets: { id: string; subject: string }[]; aiCheckEnabled: boolean; onChanged: () => Promise<void> }) {
   const [setId, setSetId] = useState(sets[0].id);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
-  async function send() {
+  async function send(mode: "ai" | "parent") {
     setBusy(true);
     setMessage(null);
     try {
       const body = new FormData();
       body.set("setId", setId);
+      body.set("mode", mode);
       for (const f of files) body.append("image", await shrinkImage(f));
       const res = await fetch("/api/kid/paper", { method: "POST", body });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error ?? "Could not send the paper");
-      setMessage({ text: "Sent! A parent will check it, then your minutes arrive.", ok: true });
+      setMessage({
+        text:
+          json.mode === "ai"
+            ? `The AI checked your paper: ${json.correct} of ${json.total} correct. ${json.minutes > 0 ? `+${json.minutes} minutes!` : "No new minutes this time."}`
+            : "Sent! A parent will check it, then your minutes arrive.",
+        ok: true,
+      });
       setFiles([]);
+      if (json.mode === "ai") await onChanged();
     } catch (e) {
       setMessage({ text: e instanceof Error ? e.message : "Could not send the paper", ok: false });
     } finally {
@@ -263,7 +272,10 @@ function PaperCard({ sets }: { sets: { id: string; subject: string }[] }) {
   return (
     <Card className="space-y-3">
       <h2 className="text-base font-semibold">Did it on paper?</h2>
-      <p className="text-sm text-slate-600">Take a photo of your finished paper. A parent checks it and your minutes arrive after.</p>
+      <p className="text-sm text-slate-600">
+        Take a photo of your finished paper.{" "}
+        {aiCheckEnabled ? "Choose who checks it: the AI adds your minutes straight away, or a parent checks it." : "A parent checks it, then your minutes arrive."}
+      </p>
       {sets.length > 1 && (
         <label className={labelText}>
           Which homework
@@ -285,9 +297,21 @@ function PaperCard({ sets }: { sets: { id: string; subject: string }[] }) {
         aria-label="Photos of your paper"
         className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
       />
-      <button type="button" onClick={send} disabled={busy || files.length === 0} className={`${btn.primary} w-full py-3 disabled:opacity-50`}>
-        {busy ? "Sending…" : "Send my paper"}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        {aiCheckEnabled && (
+          <button type="button" onClick={() => send("ai")} disabled={busy || files.length === 0} className={`${btn.primary} flex-1 py-3 disabled:opacity-50`}>
+            {busy ? "Checking…" : "Check with AI"}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => send("parent")}
+          disabled={busy || files.length === 0}
+          className={`${aiCheckEnabled ? btn.secondary : btn.primary} flex-1 py-3 disabled:opacity-50`}
+        >
+          {aiCheckEnabled ? "Check with parent" : busy ? "Sending…" : "Send to my parent"}
+        </button>
+      </div>
       {message && (
         <p role={message.ok ? "status" : "alert"} className={`rounded-lg p-3 text-sm ${message.ok ? "bg-emerald-50 text-emerald-900" : "bg-red-50 text-red-900"}`}>
           {message.text}

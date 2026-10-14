@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   attempts,
@@ -6,12 +6,16 @@ import {
   homeworkSets,
   kids,
   paperAnswers,
+  paperImages,
   paperSubmissions,
   questions,
 } from "@/db/schema";
 import { earnedToday } from "@/lib/kid-service";
 import { earnableToday, minutesForAttempt } from "@/lib/ledger";
-import type { GradableQuestion, PaperResult } from "@/lib/paper-grading";
+import type { GradableQuestion, PaperImage, PaperResult } from "@/lib/paper-grading";
+
+/** How long the photos of a paper are kept so a parent can look at them. */
+export const PHOTO_RETENTION_DAYS = 14;
 
 /** The confirmed questions of a set, in worksheet order. */
 export async function questionsForSet(setId: string): Promise<GradableQuestion[]> {
@@ -29,13 +33,27 @@ export async function questionsForSet(setId: string): Promise<GradableQuestion[]
   }));
 }
 
-/** Saves what the AI read, waiting for a parent to confirm. Returns the submission id. */
-export async function createSubmission(kidId: string, setId: string, submittedBy: "kid" | "parent", results: PaperResult[]) {
+/**
+ * Saves a paper and its photos. With AI results they are stored as the suggestion; without them (a parent will
+ * check by hand) every question starts as "not read" so the parent can mark each one.
+ */
+export async function createSubmission(a: {
+  kidId: string;
+  setId: string;
+  submittedBy: "kid" | "parent";
+  mode: "ai" | "parent";
+  questions: GradableQuestion[];
+  results: PaperResult[] | null;
+  images: PaperImage[];
+}) {
   const db = getDb();
   const [submission] = await db
     .insert(paperSubmissions)
-    .values({ kidId, setId, submittedBy })
+    .values({ kidId: a.kidId, setId: a.setId, submittedBy: a.submittedBy, mode: a.mode, aiRead: a.results !== null })
     .returning({ id: paperSubmissions.id });
+
+  const results: PaperResult[] =
+    a.results ?? a.questions.map((q) => ({ questionId: q.id, readAnswer: null, legible: false, aiCorrect: false, note: null }));
   if (results.length > 0) {
     await db.insert(paperAnswers).values(
       results.map((r) => ({
@@ -48,7 +66,61 @@ export async function createSubmission(kidId: string, setId: string, submittedBy
       })),
     );
   }
+  if (a.images.length > 0) {
+    await db.insert(paperImages).values(
+      a.images.map((img, position) => ({
+        submissionId: submission.id,
+        position,
+        contentType: img.mediaType,
+        dataBase64: img.base64,
+      })),
+    );
+  }
   return submission.id;
+}
+
+/** Deletes photos older than the retention period. The AI's reading and the results stay. */
+export async function purgeOldPaperImages() {
+  const cutoff = new Date(Date.now() - PHOTO_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  await getDb().delete(paperImages).where(lt(paperImages.createdAt, cutoff));
+}
+
+/** One photo of a paper, if it belongs to the kid and has not been deleted yet. */
+export async function imageFor(submissionId: string, kidId: string, position: number) {
+  const [row] = await getDb()
+    .select({ contentType: paperImages.contentType, dataBase64: paperImages.dataBase64 })
+    .from(paperImages)
+    .innerJoin(paperSubmissions, eq(paperSubmissions.id, paperImages.submissionId))
+    .where(and(eq(paperImages.submissionId, submissionId), eq(paperImages.position, position), eq(paperSubmissions.kidId, kidId)));
+  return row ?? null;
+}
+
+/** The stored photos of a paper, for asking the AI to read them later. */
+export async function imagesOf(submissionId: string): Promise<PaperImage[]> {
+  const rows = await getDb()
+    .select({ contentType: paperImages.contentType, dataBase64: paperImages.dataBase64 })
+    .from(paperImages)
+    .where(eq(paperImages.submissionId, submissionId))
+    .orderBy(asc(paperImages.position));
+  return rows.map((r) => ({ mediaType: r.contentType as PaperImage["mediaType"], base64: r.dataBase64 }));
+}
+
+/** Stores the AI's reading on a paper a parent is checking (the parent asked for AI help). */
+export async function applyAiResults(submissionId: string, kidId: string, results: PaperResult[]) {
+  const db = getDb();
+  const [submission] = await db
+    .select({ id: paperSubmissions.id })
+    .from(paperSubmissions)
+    .where(and(eq(paperSubmissions.id, submissionId), eq(paperSubmissions.kidId, kidId), eq(paperSubmissions.status, "pending")));
+  if (!submission) return false;
+  for (const r of results) {
+    await db
+      .update(paperAnswers)
+      .set({ readAnswer: r.readAnswer, legible: r.legible, aiCorrect: r.aiCorrect, note: r.note })
+      .where(and(eq(paperAnswers.submissionId, submissionId), eq(paperAnswers.questionId, r.questionId)));
+  }
+  await db.update(paperSubmissions).set({ aiRead: true }).where(eq(paperSubmissions.id, submissionId));
+  return true;
 }
 
 /** Homework sets the kid still has unanswered questions in, for the "check my paper" picker. */
@@ -85,6 +157,24 @@ export async function pendingSubmissions(kidId: string) {
     .orderBy(desc(paperSubmissions.createdAt));
 }
 
+/** The latest papers that are already decided, including the ones the AI checked and credited. */
+export async function recentSubmissions(kidId: string, limit = 5) {
+  return getDb()
+    .select({
+      id: paperSubmissions.id,
+      createdAt: paperSubmissions.createdAt,
+      status: paperSubmissions.status,
+      autoApproved: paperSubmissions.autoApproved,
+      awardedMinutes: paperSubmissions.awardedMinutes,
+      subject: homeworkSets.subject,
+    })
+    .from(paperSubmissions)
+    .innerJoin(homeworkSets, eq(homeworkSets.id, paperSubmissions.setId))
+    .where(and(eq(paperSubmissions.kidId, kidId), inArray(paperSubmissions.status, ["approved", "rejected"])))
+    .orderBy(desc(paperSubmissions.createdAt))
+    .limit(limit);
+}
+
 /** A submission with each question, the key, what was read and whether the kid had already solved it. */
 export async function submissionForReview(submissionId: string, kidId: string) {
   const db = getDb();
@@ -93,8 +183,13 @@ export async function submissionForReview(submissionId: string, kidId: string) {
       id: paperSubmissions.id,
       status: paperSubmissions.status,
       submittedBy: paperSubmissions.submittedBy,
+      mode: paperSubmissions.mode,
+      aiRead: paperSubmissions.aiRead,
+      autoApproved: paperSubmissions.autoApproved,
+      awardedMinutes: paperSubmissions.awardedMinutes,
       createdAt: paperSubmissions.createdAt,
       subject: homeworkSets.subject,
+      imageCount: sql<number>`(select count(*)::int from ${paperImages} pi where pi.submission_id = ${paperSubmissions.id})`,
     })
     .from(paperSubmissions)
     .innerJoin(homeworkSets, eq(homeworkSets.id, paperSubmissions.setId))
@@ -124,16 +219,21 @@ export async function submissionForReview(submissionId: string, kidId: string) {
 }
 
 /**
- * Parent confirms the paper. Each question the parent marks correct earns the kid's per-question minutes
- * (half for a retry, within the daily limit), exactly like an answer given in the app. Questions the kid had
- * already solved are skipped, and approving twice pays only once.
+ * Confirms the paper and pays for the answers counted as correct, exactly like an answer given in the app
+ * (half for a retry, within the daily limit). Questions the kid had already solved are skipped, and approving
+ * twice pays only once. `auto` marks a paper the AI checked and credited without a parent.
  */
-export async function approveSubmission(kid: typeof kids.$inferSelect, submissionId: string, correctIds: Set<string>) {
+export async function approveSubmission(
+  kid: typeof kids.$inferSelect,
+  submissionId: string,
+  correctIds: Set<string>,
+  opts: { auto?: boolean } = {},
+) {
   const db = getDb();
   // Claiming the submission first makes a double click harmless.
   const claimed = await db
     .update(paperSubmissions)
-    .set({ status: "approved", reviewedAt: new Date() })
+    .set({ status: "approved", reviewedAt: new Date(), autoApproved: opts.auto ?? false })
     .where(and(eq(paperSubmissions.id, submissionId), eq(paperSubmissions.kidId, kid.id), eq(paperSubmissions.status, "pending")))
     .returning({ id: paperSubmissions.id });
   if (claimed.length === 0) return null;
@@ -172,7 +272,8 @@ export async function approveSubmission(kid: typeof kids.$inferSelect, submissio
       if (credit.length === 1) awardedMinutes += minutes;
     }
   }
-  return { awardedMinutes, correctCount };
+  await db.update(paperSubmissions).set({ awardedMinutes }).where(eq(paperSubmissions.id, submissionId));
+  return { awardedMinutes, correctCount, total: answers.length };
 }
 
 export async function rejectSubmission(kidId: string, submissionId: string) {
