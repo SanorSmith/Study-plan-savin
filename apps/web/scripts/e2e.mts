@@ -70,6 +70,26 @@ try {
   check("balance starts 0", st.json.balanceMinutes === 0);
   check("state includes serverNow and a schedule", typeof st.json.serverNow === "string" && Array.isArray(st.json.schedule?.rules), st.json);
 
+  // paper upload (validation paths only; the AI itself is tested separately)
+  const paperCall = async (tok: string | null, fields: Record<string, string | Blob>) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+    const r = await fetch(BASE + "/api/kid/paper", {
+      method: "POST",
+      headers: { "x-real-ip": RUN_IP, ...(tok ? { authorization: `Bearer ${tok}` } : {}), ...(process.env.E2E_BYPASS ? { "x-vercel-protection-bypass": process.env.E2E_BYPASS } : {}) },
+      body: fd,
+    });
+    return r.status;
+  };
+  const png = new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" });
+  const txt = new Blob(["hello"], { type: "text/plain" });
+  check("paper upload needs a token", (await paperCall(null, { setId: set.id, image: png })) === 401);
+  check("paper upload needs a setId", (await paperCall(token, { image: png })) === 400);
+  check("paper upload refuses another kid's or unknown homework", (await paperCall(token, { setId: "00000000-0000-4000-8000-000000000000", image: png })) === 404);
+  check("paper upload refuses non-image files", (await paperCall(token, { setId: set.id, image: txt })) === 415);
+  check("paper upload needs a photo", (await paperCall(token, { setId: set.id })) === 400);
+  check("state lists the homework a paper can be sent for", Array.isArray(st.json.paperSets) && st.json.paperSets.some((x: { id: string }) => x.id === set.id), st.json.paperSets);
+
   // answers: 3 tries per question, retry earns half
   let a = await call("/api/kid/answer", token, { questionId: ids[0], answer: "5" });
   check("wrong -> 2 tries left, 0 earned", a.json.correct === false && a.json.attemptsLeft === 2 && a.json.earnedMinutes === 0, a);

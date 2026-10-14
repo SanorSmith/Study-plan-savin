@@ -11,7 +11,12 @@ import { neonAuth } from "@/lib/neon-auth";
  * Every parent page and action goes through requireParent() below.
  */
 export async function getAuthUser(): Promise<{ id: string; email?: string } | null> {
-  const { data: session } = await neonAuth.getSession();
+  // An expired or revoked session (a password change signs other sessions out) makes Neon Auth try to rewrite
+  // the cookie, which Next.js does not allow while a page renders. That must read as "signed out", not crash.
+  const session = await neonAuth
+    .getSession()
+    .then((r) => r.data)
+    .catch(() => null);
   const user = session?.user;
   // An account that exists but is not on the allowlist is treated as signed out everywhere.
   if (!user || !isEmailAllowed(user.email)) return null;

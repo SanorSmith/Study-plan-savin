@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { btn, Card, field, labelText } from "@/components/ui";
+import { shrinkImage } from "@/lib/shrink-image";
 import { assignHomework } from "../actions";
 
 type Q = {
@@ -29,7 +30,7 @@ export function HomeworkReview({ kidId, grade }: { kidId: string; grade: number 
     setError(null);
     try {
       const body = new FormData();
-      body.set("image", file);
+      body.set("image", await shrinkImage(file));
       body.set("grade", String(grade));
       const res = await fetch("/api/homework/extract", { method: "POST", body });
       const json = await res.json();

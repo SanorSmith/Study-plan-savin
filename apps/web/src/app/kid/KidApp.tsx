@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { btn, Card, field, labelText } from "@/components/ui";
 import { activeWindow, type ScheduleRule } from "@/lib/schedule";
+import { shrinkImage } from "@/lib/shrink-image";
 
 type Question = {
   id: string;
@@ -19,6 +20,7 @@ type State = {
   earnableTodayMinutes: number;
   question: Question | null;
   schedule: { timezone: string; rules: ScheduleRule[] };
+  paperSets: { id: string; subject: string }[];
 };
 type View = "loading" | "pair" | "pin" | "home";
 type Feedback = { text: string; tone: "good" | "info" | "bad" };
@@ -226,6 +228,71 @@ function Home({ state, clockOffset, refresh }: { state: State; clockOffset: numb
       ) : (
         <Card className="text-center text-sm text-slate-600">No homework waiting. Ask a parent to add some.</Card>
       )}
+
+      {state.paperSets.length > 0 && <PaperCard sets={state.paperSets} />}
     </div>
+  );
+}
+
+/** Done the homework on paper? Photograph it. A parent checks it and the minutes arrive after. */
+function PaperCard({ sets }: { sets: { id: string; subject: string }[] }) {
+  const [setId, setSetId] = useState(sets[0].id);
+  const [files, setFiles] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+
+  async function send() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const body = new FormData();
+      body.set("setId", setId);
+      for (const f of files) body.append("image", await shrinkImage(f));
+      const res = await fetch("/api/kid/paper", { method: "POST", body });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "Could not send the paper");
+      setMessage({ text: "Sent! A parent will check it, then your minutes arrive.", ok: true });
+      setFiles([]);
+    } catch (e) {
+      setMessage({ text: e instanceof Error ? e.message : "Could not send the paper", ok: false });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="space-y-3">
+      <h2 className="text-base font-semibold">Did it on paper?</h2>
+      <p className="text-sm text-slate-600">Take a photo of your finished paper. A parent checks it and your minutes arrive after.</p>
+      {sets.length > 1 && (
+        <label className={labelText}>
+          Which homework
+          <select value={setId} onChange={(e) => setSetId(e.target.value)} className={field}>
+            {sets.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.subject}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        multiple
+        disabled={busy}
+        onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 3))}
+        aria-label="Photos of your paper"
+        className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+      />
+      <button type="button" onClick={send} disabled={busy || files.length === 0} className={`${btn.primary} w-full py-3 disabled:opacity-50`}>
+        {busy ? "Sending…" : "Send my paper"}
+      </button>
+      {message && (
+        <p role={message.ok ? "status" : "alert"} className={`rounded-lg p-3 text-sm ${message.ok ? "bg-emerald-50 text-emerald-900" : "bg-red-50 text-red-900"}`}>
+          {message.text}
+        </p>
+      )}
+    </Card>
   );
 }

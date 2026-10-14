@@ -148,3 +148,38 @@ export const scheduleRules = pgTable("schedule_rules", {
   endMinute: integer("end_minute").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// A photo of a finished paper, read by the AI and waiting for a parent to confirm before minutes are awarded.
+// The photo itself is not stored; only what the AI read from it.
+export const paperSubmissions = pgTable("paper_submissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  kidId: uuid("kid_id")
+    .notNull()
+    .references(() => kids.id, { onDelete: "cascade" }),
+  setId: uuid("set_id")
+    .notNull()
+    .references(() => homeworkSets.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("pending"), // pending | approved | rejected
+  submittedBy: text("submitted_by").notNull(), // kid | parent
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+});
+
+export const paperAnswers = pgTable(
+  "paper_answers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    submissionId: uuid("submission_id")
+      .notNull()
+      .references(() => paperSubmissions.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => questions.id, { onDelete: "cascade" }),
+    readAnswer: text("read_answer"), // what the AI read from the paper; null if nothing legible
+    legible: boolean("legible").notNull(),
+    aiCorrect: boolean("ai_correct").notNull(), // the suggestion
+    finalCorrect: boolean("final_correct"), // the parent's decision, set on approval
+    note: text("note"),
+  },
+  (t) => [uniqueIndex("paper_answers_one_per_question").on(t.submissionId, t.questionId)],
+);
