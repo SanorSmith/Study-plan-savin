@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getDb } from "@/db";
 import { creditLedger, kids, parents, scheduleRules } from "@/db/schema";
-import { grantBonus, kidState, kidSync, recordUsage } from "./kid-service";
+import { grantBonus, kidState, kidSync, recordUsage, withdrawMinutes } from "./kid-service";
 
 describe.skipIf(!process.env.DATABASE_URL)("grantBonus", () => {
   // Created in beforeAll: a skipped suite still runs this callback, and getDb() throws without DATABASE_URL.
@@ -64,5 +64,31 @@ describe.skipIf(!process.env.DATABASE_URL)("grantBonus", () => {
     expect(sync.schedule.rules).toEqual([{ mode: "blocked", days: 127, startMinute: 1260, endMinute: 420 }]);
     expect(typeof sync.schedule.timezone).toBe("string");
     expect(Number.isNaN(Date.parse(sync.serverNow))).toBe(false);
+  });
+
+  it("withdraws part of the bank", async () => {
+    const kid = await newKid();
+    await grantBonus(kid.id, 30);
+    expect(await withdrawMinutes(kid.id, 12)).toBe(12);
+    expect(await balance(kid.id)).toBe(18);
+  });
+
+  it("never withdraws more than the bank holds", async () => {
+    const kid = await newKid();
+    await grantBonus(kid.id, 8);
+    expect(await withdrawMinutes(kid.id, 50)).toBe(8);
+    expect(await balance(kid.id)).toBe(0);
+    expect(await withdrawMinutes(kid.id, 5)).toBe(0); // nothing left to take
+    expect(await balance(kid.id)).toBe(0);
+  });
+
+  it("empties the bank when asked to reset", async () => {
+    const kid = await newKid();
+    await grantBonus(kid.id, 45);
+    expect(await withdrawMinutes(kid.id, null)).toBe(45);
+    expect(await balance(kid.id)).toBe(0);
+    expect(await withdrawMinutes(kid.id, null)).toBe(0); // already empty: no stray ledger row
+    const rows = await db.select().from(creditLedger).where(eq(creditLedger.kidId, kid.id));
+    expect(rows.filter((r) => r.reason === "withdrawal")).toHaveLength(1);
   });
 });

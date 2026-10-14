@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/db";
 import { devices, kids, scheduleRules } from "@/db/schema";
 import { Avatar, Badge, btn, Card, CardHeader, field, labelText, PageHeader, Stat } from "@/components/ui";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { PageLoading, ParentShell } from "@/components/ParentShell";
 import { requireParent } from "@/lib/auth";
 import { APPROVAL_MINUTES } from "@/lib/kid-service";
@@ -19,7 +20,9 @@ import {
   giveBonus,
   grantApproval,
   revokeApproval,
+  resetBank,
   updateKid,
+  withdrawFromBank,
 } from "../actions";
 
 const TZ = process.env.APP_TIMEZONE ?? "Europe/Stockholm";
@@ -30,6 +33,7 @@ const ACTIVITY_LABEL: Record<string, string> = {
   bonus: "Bonus from parent",
   correct_answer: "Earned from homework",
   usage: "Used as screen time",
+  withdrawal: "Withdrawn by parent",
   spend: "Used as screen time",
 };
 
@@ -194,6 +198,30 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
             ) : (
               <p className="text-sm text-slate-500">Nothing yet.</p>
             )}
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Withdraw minutes"
+              description={`Take minutes out of ${kid.name}'s bank, or empty it. ${kid.name} has ${overview.balanceMinutes} min now. The bank never goes below zero, and the phone picks up the change within a few minutes.`}
+            />
+            <form action={withdrawFromBank.bind(null, kid.id)} className="flex flex-wrap items-end gap-3">
+              <label className={labelText}>
+                Minutes
+                <input name="minutes" type="number" min={1} max={10000} defaultValue={10} required className={`${field} w-28`} />
+              </label>
+              <button className={btn.secondary} disabled={overview.balanceMinutes === 0}>
+                Withdraw
+              </button>
+            </form>
+            <form action={resetBank.bind(null, kid.id)} className="mt-4 border-t border-slate-100 pt-4">
+              <ConfirmButton
+                message={`Reset ${kid.name}'s bank to zero? This removes ${overview.balanceMinutes} minutes.`}
+                className={`${btn.danger} disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                Reset bank to zero
+              </ConfirmButton>
+            </form>
           </Card>
         </div>
 

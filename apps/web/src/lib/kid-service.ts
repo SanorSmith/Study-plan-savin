@@ -296,3 +296,20 @@ export async function setApproval(kidId: string, minutes: number | null): Promis
   await getDb().update(kids).set({ settingsApprovedUntil: until }).where(eq(kids.id, kidId));
   return until;
 }
+
+/**
+ * Parent takes minutes out of the bank. The charge is capped at the balance, so it never goes below zero.
+ * Pass null to empty the bank. Returns how many minutes were actually removed.
+ */
+export async function withdrawMinutes(kidId: string, minutes: number | null): Promise<number> {
+  const result = await getDb().execute(sql`
+    insert into credit_ledger (kid_id, delta_minutes, reason)
+    select ${kidId}::uuid,
+           -(case when ${minutes}::int is null then bal.b else least(${minutes}::int, bal.b) end),
+           'withdrawal'
+    from (select coalesce(sum(delta_minutes), 0)::int as b from credit_ledger where kid_id = ${kidId}::uuid) bal
+    where bal.b > 0
+    returning -delta_minutes as removed
+  `);
+  return (result.rows[0] as { removed: number } | undefined)?.removed ?? 0;
+}
