@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { btn, field, labelText } from "@/components/ui";
 import { signIn, signUp } from "./actions";
 
@@ -31,6 +32,13 @@ export function LoginForm() {
           className={field}
         />
       </label>
+      {mode === "in" && (
+        <p className="text-right">
+          <Link href="/forgot-password" className={btn.link}>
+            Forgot password?
+          </Link>
+        </p>
+      )}
       {state?.error && (
         <p role="alert" className="text-sm text-red-700">
           {state.error}

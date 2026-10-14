@@ -6,6 +6,7 @@ import { attempts, creditLedger, devices, kids } from "@/db/schema";
 import { Avatar, Badge, btn, Card, CardHeader, field, PageHeader } from "@/components/ui";
 import { PageLoading, ParentShell } from "@/components/ParentShell";
 import { requireParent } from "@/lib/auth";
+import { ChangePasswordForm } from "./ChangePasswordForm";
 import { setParentPin } from "./actions";
 
 async function KidList() {
@@ -137,6 +138,14 @@ async function KidList() {
           />
           <button className={btn.secondary}>{parent.approvalPinHash ? "Change PIN" : "Set PIN"}</button>
         </form>
+      </Card>
+
+      <Card className="mt-6 max-w-xl">
+        <CardHeader
+          title="Account"
+          description={parent.email ? `Signed in as ${parent.email}.` : "Change the password you use to sign in."}
+        />
+        <ChangePasswordForm />
       </Card>
     </ParentShell>
   );
