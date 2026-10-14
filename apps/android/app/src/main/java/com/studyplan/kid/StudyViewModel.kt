@@ -110,14 +110,20 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         loadState(t)
     }
 
-    /** Sends photos of the finished paper; a parent checks them and the minutes arrive after. */
-    fun sendPaper(setId: String, photos: List<Uri>, onSent: () -> Unit) = run {
+    /** Sends photos of the finished paper. With mode "ai" the minutes are added at once; with "parent" a parent checks it. */
+    fun sendPaper(setId: String, photos: List<Uri>, mode: String, onSent: () -> Unit) = run {
         message = null
         val t = token ?: return@run
         val jpegs = withContext(Dispatchers.IO) { photos.map { ImageShrink.toJpeg(ctx, it) } }
-        Api.uploadPaper(t, setId, jpegs)
-        message = "Sent! A parent will check it, then your minutes arrive."
+        val result = Api.uploadPaper(t, setId, jpegs, mode)
+        message = if (result.checkedByAi) {
+            "The AI checked your paper: ${result.correct} of ${result.total} correct. " +
+                if (result.minutes > 0) "+${result.minutes} minutes!" else "No new minutes this time."
+        } else {
+            "Sent! A parent will check it, then your minutes arrive."
+        }
         onSent()
         withContext(Dispatchers.IO) { ctx.cacheDir.resolve("paper").listFiles()?.forEach { it.delete() } }
+        if (result.checkedByAi) loadState(t) // the bank changed
     }
 }
