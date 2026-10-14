@@ -8,10 +8,11 @@ import { devices, kids, scheduleRules } from "@/db/schema";
 import { requireParent } from "@/lib/auth";
 import { BonusInput } from "@/lib/bonus-input";
 import { KidInput, PinInput } from "@/lib/kid-input";
-import { APPROVAL_MINUTES, grantBonus, setApproval } from "@/lib/kid-service";
+import { APPROVAL_MINUTES, grantBonus, setApproval, withdrawMinutes } from "@/lib/kid-service";
 import { generatePairingCode, pairingExpiry } from "@/lib/pairing";
 import { hashPin } from "@/lib/pin";
 import { daysMask, ScheduleInput } from "@/lib/schedule-input";
+import { WithdrawInput } from "@/lib/withdraw-input";
 
 const fields = (form: FormData) => ({
   name: form.get("name"),
@@ -131,4 +132,21 @@ export async function revokeApproval(kidId: string) {
   const kid = await ownedKid(kidId);
   await setApproval(kid.id, null);
   revalidatePath(`/kids/${kidId}`);
+}
+
+/** Parent takes a number of minutes out of the bank (never below zero). */
+export async function withdrawFromBank(kidId: string, form: FormData) {
+  const kid = await ownedKid(kidId);
+  const input = WithdrawInput.parse({ minutes: form.get("minutes") });
+  await withdrawMinutes(kid.id, input.minutes);
+  revalidatePath(`/kids/${kidId}`);
+  revalidatePath("/dashboard");
+}
+
+/** Parent empties the bank. */
+export async function resetBank(kidId: string) {
+  const kid = await ownedKid(kidId);
+  await withdrawMinutes(kid.id, null);
+  revalidatePath(`/kids/${kidId}`);
+  revalidatePath("/dashboard");
 }
