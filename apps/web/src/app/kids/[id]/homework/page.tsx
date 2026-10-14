@@ -10,6 +10,7 @@ import { requireParent } from "@/lib/auth";
 import { MAX_ATTEMPTS } from "@/lib/ledger";
 import type { QuestionStatus } from "@/lib/question-status";
 import { homeworkResults } from "@/lib/results";
+import { PaperUpload } from "./PaperUpload";
 
 const STATUS: Record<QuestionStatus, { label: string; tone: "neutral" | "good" | "warn" | "bad" }> = {
   not_tried: { label: "Not tried", tone: "neutral" },
@@ -64,6 +65,14 @@ async function Results({ params }: { params: Promise<{ id: string }> }) {
                 {set.solved}/{set.questions.length} solved · {set.earnedMinutes} min earned · {fmt.format(set.createdAt)}
               </p>
             </div>
+            <details className="mb-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <summary className="cursor-pointer text-sm font-medium text-slate-900">Check a finished paper with AI</summary>
+              <p className="mb-3 mt-2 text-sm text-slate-600">
+                Photograph {kid.name}&apos;s handwritten answers. The AI reads them and compares them with the answer key. You review the
+                result before any minutes are added.
+              </p>
+              <PaperUpload kidId={kid.id} setId={set.id} />
+            </details>
             <ol className="space-y-3">
               {set.questions.map((q, i) => (
                 <li key={q.id}>

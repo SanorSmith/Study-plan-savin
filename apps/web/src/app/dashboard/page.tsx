@@ -6,6 +6,7 @@ import { attempts, creditLedger, devices, kids } from "@/db/schema";
 import { Avatar, Badge, btn, Card, CardHeader, field, PageHeader } from "@/components/ui";
 import { PageLoading, ParentShell } from "@/components/ParentShell";
 import { requireParent } from "@/lib/auth";
+import { pendingCounts } from "@/lib/paper-service";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { setParentPin } from "./actions";
 
@@ -40,6 +41,7 @@ async function KidList() {
   const balanceOf = new Map(balances.map((b) => [b.kidId, b.minutes]));
   const triesOf = new Map(tries.map((t) => [t.kidId, t]));
   const pairedOf = new Map(phones.map((p) => [p.kidId, p.paired]));
+  const papersOf = await pendingCounts(ids);
 
   return (
     <ParentShell>
@@ -98,6 +100,9 @@ async function KidList() {
                     <Badge tone="warn">No phone paired</Badge>
                   )}
                   {!k.pinHash && <Badge tone="warn">No PIN set</Badge>}
+                  {(papersOf.get(k.id) ?? 0) > 0 && (
+                    <Badge tone="warn">{papersOf.get(k.id)} {papersOf.get(k.id) === 1 ? "paper" : "papers"} to review</Badge>
+                  )}
                 </div>
 
                 <div className="relative z-10 mt-4 flex gap-4 border-t border-slate-100 pt-3">

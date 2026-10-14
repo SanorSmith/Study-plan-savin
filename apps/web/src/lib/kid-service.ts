@@ -79,7 +79,7 @@ export async function balanceOf(kidId: string): Promise<number> {
   return row.total;
 }
 
-async function earnedToday(kidId: string): Promise<number> {
+export async function earnedToday(kidId: string): Promise<number> {
   const [row] = await getDb()
     .select({ total: sql<number>`coalesce(sum(${creditLedger.deltaMinutes}), 0)::int` })
     .from(creditLedger)

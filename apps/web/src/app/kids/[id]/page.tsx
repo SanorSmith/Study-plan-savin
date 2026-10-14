@@ -10,6 +10,7 @@ import { PageLoading, ParentShell } from "@/components/ParentShell";
 import { requireParent } from "@/lib/auth";
 import { APPROVAL_MINUTES } from "@/lib/kid-service";
 import { isPairingValid } from "@/lib/pairing";
+import { pendingSubmissions } from "@/lib/paper-service";
 import { kidOverview, recentActivity } from "@/lib/results";
 import { DAY_LABELS, daysLabel, formatMinute } from "@/lib/schedule-input";
 import { KidFields } from "../KidFields";
@@ -47,11 +48,12 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
     .where(and(eq(kids.id, id), eq(kids.parentId, parent.id)));
   if (!kid) notFound();
 
-  const [list, activity, rules, overview] = await Promise.all([
+  const [list, activity, rules, overview, papers] = await Promise.all([
     db.select().from(devices).where(eq(devices.kidId, kid.id)).orderBy(desc(devices.createdAt)),
     recentActivity(kid.id),
     db.select().from(scheduleRules).where(eq(scheduleRules.kidId, kid.id)).orderBy(scheduleRules.startMinute),
     kidOverview(kid.id),
+    pendingSubmissions(kid.id),
   ]);
   const now = new Date();
   const paired = list.filter((d) => d.tokenHash).length;
@@ -83,6 +85,27 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
           </>
         }
       />
+
+      {papers.length > 0 && (
+        <Card className="mb-6 border-amber-300 bg-amber-50">
+          <CardHeader
+            title={papers.length === 1 ? "1 paper is waiting for your review" : `${papers.length} papers are waiting for your review`}
+            description="The AI has read the handwritten answers. Check them and approve to add the minutes."
+          />
+          <ul className="space-y-2">
+            {papers.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-3 text-sm">
+                <span>
+                  {p.subject} · {p.submittedBy === "kid" ? `from ${kid.name}` : "from you"} · {fmtWhen.format(p.createdAt)}
+                </span>
+                <Link href={`/kids/${kid.id}/papers/${p.id}`} className={btn.primary}>
+                  Review
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="In the bank" value={`${overview.balanceMinutes} min`} hint="Used while the phone is in use" />
