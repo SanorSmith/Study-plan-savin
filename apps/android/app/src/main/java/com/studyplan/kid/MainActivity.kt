@@ -136,6 +136,8 @@ private fun Home(vm: StudyViewModel, s: KidState) {
     } else {
         QuestionCard(vm, s, q)
     }
+
+    if (s.paperSets.isNotEmpty()) PaperCard(vm, s.paperSets)
 }
 
 @Composable
