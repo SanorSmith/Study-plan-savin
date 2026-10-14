@@ -37,7 +37,7 @@ private fun newPhotoUri(context: Context): Uri {
 
 /** Did the homework on paper? Photograph it (up to 3 pages). A parent checks it and the minutes arrive after. */
 @Composable
-fun PaperCard(vm: StudyViewModel, sets: List<PaperSet>) {
+fun PaperCard(vm: StudyViewModel, sets: List<PaperSet>, aiCheckEnabled: Boolean) {
     val context = LocalContext.current
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var pages by rememberSaveable { mutableStateOf(listOf<String>()) } // photo addresses, kept across the camera app
@@ -56,7 +56,11 @@ fun PaperCard(vm: StudyViewModel, sets: List<PaperSet>) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Did it on paper?", fontSize = 20.sp)
-            Text("Take a photo of your finished paper. A parent checks it, and your minutes arrive after.", fontSize = 14.sp)
+            Text(
+                if (aiCheckEnabled) "Take a photo of your finished paper, then choose who checks it. The AI adds your minutes straight away, or a parent checks it."
+                else "Take a photo of your finished paper. A parent checks it, and your minutes arrive after.",
+                fontSize = 14.sp,
+            )
 
             if (sets.size > 1) {
                 Text("Which homework?", fontSize = 14.sp)
@@ -89,13 +93,26 @@ fun PaperCard(vm: StudyViewModel, sets: List<PaperSet>) {
 
             if (pages.isNotEmpty()) {
                 Text("${pages.size} of $MAX_PAGES photos ready", fontSize = 14.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val uris = pages.map(Uri::parse)
+                if (aiCheckEnabled) {
                     Button(
                         enabled = !vm.busy,
-                        onClick = { vm.sendPaper(set.id, pages.map(Uri::parse)) { pages = emptyList() } },
-                    ) { Text(if (vm.busy) "Sending…" else "Send my paper") }
-                    OutlinedButton(enabled = !vm.busy, onClick = { pages = pages.dropLast(1) }) { Text("Remove last") }
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { vm.sendPaper(set.id, uris, "ai") { pages = emptyList() } },
+                    ) { Text(if (vm.busy) "Checking…" else "Check with AI") }
+                    OutlinedButton(
+                        enabled = !vm.busy,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { vm.sendPaper(set.id, uris, "parent") { pages = emptyList() } },
+                    ) { Text("Check with parent") }
+                } else {
+                    Button(
+                        enabled = !vm.busy,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { vm.sendPaper(set.id, uris, "parent") { pages = emptyList() } },
+                    ) { Text(if (vm.busy) "Sending…" else "Send to my parent") }
                 }
+                OutlinedButton(enabled = !vm.busy, onClick = { pages = pages.dropLast(1) }) { Text("Remove last") }
             }
         }
     }

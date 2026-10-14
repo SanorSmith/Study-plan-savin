@@ -28,6 +28,7 @@ data class KidState(
     val schedule: Schedule,
     val approvedUntil: String?,
     val paperSets: List<PaperSet>,
+    val aiCheckEnabled: Boolean,
 )
 
 data class SyncData(val balanceMinutes: Int, val serverNow: String, val schedule: Schedule, val approvedUntil: String?)
@@ -35,6 +36,9 @@ data class SyncData(val balanceMinutes: Int, val serverNow: String, val schedule
 data class ApprovalResult(val approvedUntil: String, val serverNow: String)
 
 data class UsageResult(val balanceMinutes: Int, val serverNow: String)
+
+/** What happened to a paper: sent to a parent, or checked by the AI with minutes added at once. */
+data class PaperResult(val checkedByAi: Boolean, val correct: Int, val total: Int, val minutes: Int)
 
 data class AnswerResult(val correct: Boolean, val earnedMinutes: Int, val attemptsLeft: Int)
 
@@ -110,6 +114,7 @@ object Api {
             paperSets = j.optJSONArray("paperSets")?.let { a ->
                 List(a.length()) { i -> PaperSet(a.getJSONObject(i).getString("id"), a.getJSONObject(i).getString("subject")) }
             } ?: emptyList(),
+            aiCheckEnabled = j.optBoolean("aiCheckEnabled", false),
         )
     }
 
@@ -141,14 +146,22 @@ object Api {
         return ApprovalResult(j.getString("approvedUntil"), j.getString("serverNow"))
     }
 
-    /** Sends photos of a finished paper. The server reads them and a parent confirms before minutes are added. */
-    suspend fun uploadPaper(token: String, setId: String, jpegs: List<ByteArray>) {
+    /**
+     * Sends photos of a finished paper. [mode] is "ai" (the AI checks it and the minutes are added at once, only if a
+     * parent turned that on) or "parent" (a parent checks the photos by hand).
+     */
+    suspend fun uploadPaper(token: String, setId: String, jpegs: List<ByteArray>, mode: String): PaperResult {
         val boundary = "----studyplan" + System.nanoTime()
         val body = multipartBody(
             boundary,
-            mapOf("setId" to setId),
+            mapOf("setId" to setId, "mode" to mode),
             jpegs.mapIndexed { i, bytes -> FilePart("image", "page${i + 1}.jpg", "image/jpeg", bytes) },
         )
-        call("POST", "/api/kid/paper", token, raw = "multipart/form-data; boundary=$boundary" to body, readTimeoutMs = 90_000)
+        val j = call("POST", "/api/kid/paper", token, raw = "multipart/form-data; boundary=$boundary" to body, readTimeoutMs = 90_000)
+        return if (j.optString("mode") == "ai") {
+            PaperResult(true, j.getInt("correct"), j.getInt("total"), j.getInt("minutes"))
+        } else {
+            PaperResult(false, 0, 0, 0)
+        }
     }
 }

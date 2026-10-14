@@ -7,9 +7,14 @@ and another app is open. A parent can set locked and free time windows.
 ## Homework on paper
 
 When a kid has homework with unanswered questions, the home screen shows **Did it on paper?**. The kid takes up to 3 photos
-of the finished paper (or picks them from the gallery) and taps **Send my paper**. Each photo is shrunk to 2000 px and sent to
-`POST /api/kid/paper`. The server reads the handwriting with AI and a parent confirms before any minutes are added. The kid never
-sees what the AI read or the answer key.
+of the finished paper (or picks them from the gallery), then chooses who checks it. Each photo is shrunk to 2000 px and sent to
+`POST /api/kid/paper` with `mode`:
+
+- **Check with AI** (only if a parent turned AI checking on for the kid): the AI reads the handwriting and the minutes are added at once.
+- **Check with parent**: the photos go only to the parent, who sees them on the dashboard and marks the answers. No AI sees them
+  unless the parent asks for suggestions.
+
+When AI checking is off, the kid only sees **Send to my parent**. The kid never sees the answer key.
 
 The camera and photo picker are blocked apps like any other, so tapping **Take a photo** lets them open for 5 minutes
 (`Store.allowCameraFor`), even with no minutes left. Opening the camera any other time is blocked and charged as usual.

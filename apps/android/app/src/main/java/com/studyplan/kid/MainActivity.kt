@@ -137,7 +137,7 @@ private fun Home(vm: StudyViewModel, s: KidState) {
         QuestionCard(vm, s, q)
     }
 
-    if (s.paperSets.isNotEmpty()) PaperCard(vm, s.paperSets)
+    if (s.paperSets.isNotEmpty()) PaperCard(vm, s.paperSets, s.aiCheckEnabled)
 }
 
 @Composable
