@@ -1,10 +1,13 @@
 package com.studyplan.kid
 
+import android.Manifest
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -55,9 +58,20 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun StudyApp(vm: StudyViewModel) {
-    // Re-check the server whenever the kid comes back to the app.
+    val context = LocalContext.current
+    var permissionsReady by remember { mutableStateOf(Permissions.ready(context)) }
+
+    // Notifications only make the "Study Plan is on" notice visible; the lock works without them.
+    val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    // Re-check the server and the permissions whenever the kid comes back to the app.
     LifecycleResumeEffect(Unit) {
         if (vm.screen == Screen.Home) vm.refresh()
+        permissionsReady = Permissions.ready(context)
+        Permissions.startService(context) // keeps the lock running; harmless when it already is
         onPauseOrDispose { }
     }
 
@@ -65,6 +79,7 @@ fun StudyApp(vm: StudyViewModel) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        if (!permissionsReady) SetupCard()
         when (vm.screen) {
             Screen.Loading -> Text("Loading…")
             Screen.Pair -> CodeEntry(
@@ -108,25 +123,9 @@ private fun CodeEntry(title: String, label: String, secret: Boolean, busy: Boole
 @Composable
 private fun Home(vm: StudyViewModel, s: KidState) {
     val context = LocalContext.current
-    var lockEnabled by remember { mutableStateOf(LockPolicy.isServiceEnabled(context)) }
-    LifecycleResumeEffect(Unit) {
-        lockEnabled = LockPolicy.isServiceEnabled(context)
-        onPauseOrDispose { }
-    }
 
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(s.name, fontSize = 28.sp)
-    }
-
-    if (!lockEnabled) {
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("The screen lock is off. Ask a parent to turn on \"Study Plan screen lock\" in Accessibility settings.")
-                OutlinedButton(onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) {
-                    Text("Open Accessibility settings")
-                }
-            }
-        }
     }
 
     TimeCard()
@@ -193,6 +192,32 @@ private fun TimeCard() {
                 },
                 fontSize = 14.sp,
             )
+        }
+    }
+}
+
+/** The two permissions the lock needs. A parent grants them once, ideally before pairing. */
+@Composable
+private fun SetupCard() {
+    val context = LocalContext.current
+    val usage = Permissions.hasUsageAccess(context)
+    val overlay = Permissions.canOverlay(context)
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Parent setup", fontSize = 20.sp)
+            Text("The screen lock needs two permissions. A parent grants them once in Settings. Settings is parents-only after pairing, so do this first.")
+            if (!usage) {
+                Text("1. Usage access lets the app see which app is open. It never sees what is on screen.", fontSize = 14.sp)
+                OutlinedButton(onClick = { context.startActivity(Permissions.usageAccessIntent()) }) { Text("Allow usage access") }
+            } else {
+                Text("Usage access: on", fontSize = 14.sp)
+            }
+            if (!overlay) {
+                Text("2. Display over other apps lets the lock screen cover a blocked app.", fontSize = 14.sp)
+                OutlinedButton(onClick = { context.startActivity(Permissions.overlayIntent(context)) }) { Text("Allow display over other apps") }
+            } else {
+                Text("Display over other apps: on", fontSize = 14.sp)
+            }
         }
     }
 }
