@@ -72,3 +72,30 @@ fun gradeLabel(grade: Int): String = "Grade $grade"
 
 /** A code typed by hand: letters and digits only, upper case, at most 8 characters. */
 fun cleanCode(raw: String): String = raw.uppercase().filter { it.isLetterOrDigit() }.take(8)
+
+data class RuleInfo(val id: String, val mode: String, val days: Int, val startMinute: Int, val endMinute: Int)
+
+data class PhoneInfo(val id: String, val platform: String, val paired: Boolean, val code: String?)
+
+data class QuestionResultInfo(val text: String, val answerKey: String, val status: String, val tries: Int, val earnedMinutes: Int)
+
+data class HomeworkInfo(val id: String, val subject: String, val createdAt: String, val solved: Int, val total: Int, val earnedMinutes: Int, val questions: List<QuestionResultInfo>)
+
+data class KidDetail(
+    val id: String,
+    val name: String,
+    val grade: Int,
+    val minutesPerQuestion: Int,
+    val dailyCapMinutes: Int,
+    val uiStyle: String,
+    val hasPin: Boolean,
+    val balanceMinutes: Int,
+    val earnedTodayMinutes: Int,
+    val aiCheckEnabled: Boolean,
+    val approvedForSettings: Boolean,
+    val schedule: List<RuleInfo>,
+    val phones: List<PhoneInfo>,
+    val homework: List<HomeworkInfo>,
+)
+
+data class KidProfile(val name: String, val grade: Int, val minutesPerQuestion: Int, val dailyCapMinutes: Int, val uiStyle: String)

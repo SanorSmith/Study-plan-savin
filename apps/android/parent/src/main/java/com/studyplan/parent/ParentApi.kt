@@ -129,5 +129,104 @@ object ParentApi {
             }
         }
 
+    private suspend fun raw(method: String, path: String, token: String, contentType: String, bytes: ByteArray, readTimeoutMs: Int): JSONObject =
+        withContext(Dispatchers.IO) {
+            val conn = open(method, path, token)
+            try {
+                conn.readTimeout = readTimeoutMs
+                conn.setRequestProperty("accept", "application/json")
+                conn.doOutput = true
+                conn.setFixedLengthStreamingMode(bytes.size)
+                conn.setRequestProperty("content-type", contentType)
+                conn.outputStream.use { it.write(bytes) }
+                val status = conn.responseCode
+                val text = (if (status in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val json = runCatching { JSONObject(text) }.getOrDefault(JSONObject())
+                if (status !in 200..299) throw ApiException(status, json.optString("error", "Error $status"))
+                json
+            } finally {
+                conn.disconnect()
+            }
+        }
+
+    suspend fun kid(token: String, id: String): KidDetail {
+        val j = call("GET", "/api/parent/kids/$id", token)
+        return KidDetail(
+            id = j.getString("id"),
+            name = j.getString("name"),
+            grade = j.getInt("grade"),
+            minutesPerQuestion = j.getInt("minutesPerQuestion"),
+            dailyCapMinutes = j.getInt("dailyCapMinutes"),
+            uiStyle = j.getString("uiStyle"),
+            hasPin = j.getBoolean("hasPin"),
+            balanceMinutes = j.getInt("balanceMinutes"),
+            earnedTodayMinutes = j.getInt("earnedTodayMinutes"),
+            aiCheckEnabled = j.getBoolean("aiCheckEnabled"),
+            approvedForSettings = j.getBoolean("approvedForSettings"),
+            schedule = j.getJSONArray("schedule").objects().map { RuleInfo(it.getString("id"), it.getString("mode"), it.getInt("days"), it.getInt("startMinute"), it.getInt("endMinute")) },
+            phones = j.getJSONArray("phones").objects().map { PhoneInfo(it.getString("id"), it.getString("platform"), it.getBoolean("paired"), if (it.isNull("code")) null else it.getString("code")) },
+            homework = j.getJSONArray("homework").objects().map { h ->
+                HomeworkInfo(
+                    h.getString("id"), h.getString("subject"), h.getString("createdAt"), h.getInt("solved"), h.getInt("total"), h.getInt("earnedMinutes"),
+                    h.getJSONArray("questions").objects().map { q -> QuestionResultInfo(q.getString("text"), q.getString("answerKey"), q.getString("status"), q.getInt("tries"), q.getInt("earnedMinutes")) },
+                )
+            },
+        )
+    }
+
+    private fun profileJson(p: KidProfile) =
+        JSONObject().put("name", p.name).put("grade", p.grade).put("minutesPerQuestion", p.minutesPerQuestion).put("dailyCapMinutes", p.dailyCapMinutes).put("uiStyle", p.uiStyle)
+
+    suspend fun createKid(token: String, profile: KidProfile, pin: String): String =
+        call("POST", "/api/parent/kids", token, JSONObject().put("profile", profileJson(profile)).put("pin", pin)).getString("id")
+
+    suspend fun updateKid(token: String, id: String, profile: KidProfile, pin: String) {
+        kidAction(token, id, JSONObject().put("action", "update").put("profile", profileJson(profile)).apply { if (pin.isNotEmpty()) put("pin", pin) })
+    }
+
+    suspend fun addRule(token: String, id: String, mode: String, days: Int, start: String, end: String) {
+        kidAction(token, id, JSONObject().put("action", "add_rule").put("mode", mode).put("days", days).put("start", start).put("end", end))
+    }
+
+    suspend fun deleteRule(token: String, id: String, ruleId: String) {
+        kidAction(token, id, JSONObject().put("action", "delete_rule").put("ruleId", ruleId))
+    }
+
+    /** A one-time code to type on the kid's phone. */
+    suspend fun pairPhone(token: String, id: String): String =
+        call("POST", "/api/parent/kids/$id", token, JSONObject().put("action", "pair_phone")).getString("code")
+
+    /** Reads a worksheet photo and suggests questions; nothing is assigned yet. */
+    suspend fun extractHomework(token: String, jpeg: ByteArray, grade: Int): List<QuestionDraft> {
+        val boundary = "----studyplan${System.currentTimeMillis()}"
+        val body = multipartBody(boundary, mapOf("grade" to grade.toString()), listOf(FilePart("image", "worksheet.jpg", "image/jpeg", jpeg)))
+        val j = raw("POST", "/api/parent/homework/extract", token, "multipart/form-data; boundary=$boundary", body, 120_000)
+        return j.getJSONArray("questions").objects().map {
+            QuestionDraft(
+                text = it.getString("text"),
+                type = it.getString("type"),
+                options = it.optJSONArray("options")?.let { a -> List(a.length()) { i -> a.getString(i) } },
+                answerKey = it.optString("suggestedAnswer", ""),
+            )
+        }
+    }
+
+    suspend fun assignHomework(token: String, kidId: String, subject: String, drafts: List<QuestionDraft>) {
+        val questions = JSONArray()
+        drafts.filter { it.include }.forEach {
+            questions.put(
+                JSONObject().put("text", it.text.trim()).put("type", it.type)
+                    .put("options", if (it.type == "multiple_choice") JSONArray(it.options.orEmpty().map(String::trim)) else JSONObject.NULL)
+                    .put("answerKey", it.answerKey.trim()),
+            )
+        }
+        call("POST", "/api/parent/kids/$kidId/homework", token, JSONObject().put("subject", subject.trim()).put("questions", questions))
+    }
+
+    /** Asks the AI to read the stored photos and suggest which answers are right. */
+    suspend fun askAi(token: String, paperId: String) {
+        raw("POST", "/api/parent/papers/$paperId/ai", token, "application/json", "{}".toByteArray(), 120_000)
+    }
+
     private fun JSONArray.objects(): List<JSONObject> = List(length()) { getJSONObject(it) }
 }
