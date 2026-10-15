@@ -19,6 +19,7 @@ const fields = (form: FormData) => ({
   grade: form.get("grade"),
   minutesPerQuestion: form.get("minutesPerQuestion"),
   dailyCapMinutes: form.get("dailyCapMinutes"),
+  uiStyle: form.get("uiStyle") ?? "auto",
 });
 
 async function pinHashFrom(form: FormData): Promise<string | undefined> {

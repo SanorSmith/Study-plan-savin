@@ -1,10 +1,12 @@
 import { field, labelText } from "@/components/ui";
+import { UI_STYLES } from "@/lib/age-band";
 
 type Defaults = {
   name?: string;
   grade?: number;
   minutesPerQuestion?: number;
   dailyCapMinutes?: number;
+  uiStyle?: string;
 };
 
 export function KidFields({ d = {}, pinHint }: { d?: Defaults; pinHint: string }) {
@@ -25,6 +27,16 @@ export function KidFields({ d = {}, pinHint }: { d?: Defaults; pinHint: string }
       <label className={labelText}>
         Daily limit on earned minutes
         <input name="dailyCapMinutes" type="number" min={10} max={480} required defaultValue={d.dailyCapMinutes ?? 120} className={field} />
+      </label>
+      <label className={labelText}>
+        Look of the kid&apos;s app
+        <select name="uiStyle" defaultValue={d.uiStyle ?? "auto"} className={field}>
+          {UI_STYLES.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
       </label>
       <label className={labelText}>
         Kid&apos;s PIN (4 digits)

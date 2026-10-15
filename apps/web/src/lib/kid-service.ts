@@ -105,6 +105,7 @@ async function nextQuestion(kidId: string) {
       type: questions.type,
       options: questions.options,
       subject: homeworkSets.subject,
+      setId: homeworkSets.id,
     })
     .from(questions)
     .innerJoin(homeworkSets, eq(homeworkSets.id, questions.setId))
@@ -155,6 +156,21 @@ export async function kidSync(kidId: string) {
   };
 }
 
+/** How far through a homework set the kid is: questions solved or out of tries, out of all that can be asked in the app. */
+async function setProgress(kidId: string, setId: string) {
+  const result = await getDb().execute(sql`
+    select count(*)::int as total,
+           count(*) filter (where
+             exists (select 1 from attempts a where a.question_id = q.id and a.kid_id = ${kidId}::uuid and a.correct)
+             or (select count(*) from attempts a where a.question_id = q.id and a.kid_id = ${kidId}::uuid) >= ${MAX_ATTEMPTS}
+           )::int as done
+    from questions q
+    where q.set_id = ${setId}::uuid and q.confirmed = true and q.type in ('multiple_choice', 'numeric')
+  `);
+  const row = result.rows[0] as { total: number; done: number } | undefined;
+  return row ? { done: row.done, total: row.total } : null;
+}
+
 export async function kidState(kid: typeof kids.$inferSelect) {
   const [sync, earned, question] = await Promise.all([
     kidSync(kid.id),
@@ -166,7 +182,11 @@ export async function kidState(kid: typeof kids.$inferSelect) {
     name: kid.name,
     minutesPerQuestion: kid.minutesPerQuestion,
     earnableTodayMinutes: earnableToday(earned, kid.minutesPerQuestion, kid.dailyCapMinutes),
-    question,
+    // The kid's grade and the look a parent chose, so the app can fit the kid's age.
+    grade: kid.grade,
+    uiStyle: kid.uiStyle,
+    progress: question ? await setProgress(kid.id, question.setId) : null,
+    question: question ? { id: question.id, text: question.text, type: question.type, options: question.options, subject: question.subject } : null,
   };
 }
 

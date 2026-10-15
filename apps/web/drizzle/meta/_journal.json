@@ -64,6 +64,13 @@
       "when": 1792009619553,
       "tag": "0008_perpetual_speed_demon",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792083010150,
+      "tag": "0009_clumsy_hercules",
+      "breakpoints": true
     }
   ]
 }

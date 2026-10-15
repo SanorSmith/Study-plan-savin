@@ -38,6 +38,8 @@ export const kids = pgTable("kids", {
   settingsApprovedUntil: timestamp("settings_approved_until"),
   // When on, the kid may choose AI checking for a paper and the minutes are added straight away.
   aiCheckEnabled: boolean("ai_check_enabled").notNull().default(false),
+  // The look of the kid's app: auto (from the grade), little, middle or teen.
+  uiStyle: text("ui_style").notNull().default("auto"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

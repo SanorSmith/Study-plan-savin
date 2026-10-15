@@ -355,7 +355,25 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
           </Card>
 
           <Card>
-            <CardHeader title="Profile" />
+            <CardHeader
+              title="Profile"
+              description={
+                <>
+                  The kid&apos;s app fits the age. See it as {kid.name} would:{" "}
+                  <Link href={`/kids/${kid.id}/preview/little`} className={btn.link}>
+                    Young
+                  </Link>
+                  {" · "}
+                  <Link href={`/kids/${kid.id}/preview/middle`} className={btn.link}>
+                    Middle
+                  </Link>
+                  {" · "}
+                  <Link href={`/kids/${kid.id}/preview/teen`} className={btn.link}>
+                    Teen
+                  </Link>
+                </>
+              }
+            />
             <form action={updateKid.bind(null, kid.id)} className="space-y-4">
               <KidFields d={kid} pinHint={kid.pinHash ? "Leave blank to keep current" : "Not set"} />
               <button className={btn.primary}>Save</button>

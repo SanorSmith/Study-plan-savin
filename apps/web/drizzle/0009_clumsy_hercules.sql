@@ -1,0 +1,1 @@
+ALTER TABLE "kids" ADD COLUMN "ui_style" text DEFAULT 'auto' NOT NULL;
