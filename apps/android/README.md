@@ -1,4 +1,8 @@
-# Study Plan - Android kid app
+# Study Plan - Android apps
+
+Two apps live here: `app` is the **kid app** (below) and `parent` is the **parent app** (last section).
+
+## Kid app
 
 Native Kotlin and Jetpack Compose app. The kid pairs the phone with a code from the parent, enters a PIN,
 and answers homework questions to earn minutes. Minutes are then used automatically while the screen is on
@@ -84,3 +88,17 @@ The bypass secret is compiled into the APK, so use it for local testing only and
 - A reboot restarts the service, but there can be a few seconds of no lock while the phone starts.
 - The cover appears within about a second of a blocked app opening, so a brief flash of the app is possible.
 - Not yet verified on a physical phone.
+
+## Parent app (`parent` module)
+
+A second app for the parent's phone: **Study Plan Parent** (`com.studyplan.parent`). It does not have the kid's lock;
+it is the parent's remote control for the same account.
+
+- **Pair:** on the website dashboard, **Parent app for Android > New code**, then type the code in the app. The code works once for 15 minutes
+  and is swapped for a token kept in app-private storage (`POST /api/parent/pair`). A phone can be removed on the dashboard.
+- **Check papers:** the photos, what was read from the paper, and the answer key. Tick what is right and approve (minutes are added), or send the paper back.
+- **Kids:** give bonus time, take minutes out, empty the bank, turn AI checking on or off, allow Settings on the kid's phone for 10 minutes.
+- **Notifications:** WorkManager asks `GET /api/parent/state` about every 15 minutes (Android's minimum) and notifies when a new paper is waiting.
+  It uses no Firebase, so there is no extra account. The delay can be up to about 15 minutes, and phones that restrict background work may delay it more.
+
+Build: `./gradlew :parent:assembleDebug`. Tests: `./gradlew :parent:testDebugUnitTest`.
