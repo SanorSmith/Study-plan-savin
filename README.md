@@ -26,6 +26,16 @@ Parents can use the website as an app, or install the Android parent app.
 - **Website as an app:** open the website on your phone and choose **Install the app** on the dashboard (iPhone: Share, then Add to Home Screen).
 - **Android parent app:** download https://github.com/SanorSmith/Study-plan-savin/releases/latest/download/StudyPlanParent.apk, then on the dashboard tap **Parent app for Android > New code** and type the code in the app. You get a notification when a paper is waiting, can look at the photos and approve them, and can give or take minutes.
 
+## Web apps (no install, iPhone and tablets too)
+
+| App | Link |
+| --- | --- |
+| **Parent** | https://study-plan-savin.vercel.app/dashboard |
+| **Kid** | https://study-plan-savin.vercel.app/kid |
+
+Both fit a phone screen and can be added to the home screen as their own apps (Android Chrome: Install app or Add to Home screen; iPhone Safari: Share, then Add to Home Screen). The kid app has its own name and icon.
+The kid web app does the homework, the paper photos and the age looks, but a web page cannot lock other apps or count screen time, so the rules are only enforced by the Android kid app.
+
 ## What the app does
 
 - **Earn:** answer questions in the app (3 tries each, a retry earns half) or photograph a finished paper. A parent can let the AI check papers and credit minutes at once, or check them by hand.

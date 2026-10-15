@@ -157,6 +157,21 @@ async function KidList() {
 
       <Card className="mt-6 max-w-xl">
         <CardHeader
+          title="Web apps (iPhone, tablets, any browser)"
+          description="Both work in a browser and can be added to the home screen as apps. The kid page cannot lock the phone: only the Android kid app does that."
+        />
+        <ul className="space-y-1 text-sm">
+          <li>
+            Parent: <a className={btn.link} href="/dashboard">study-plan-savin.vercel.app/dashboard</a>
+          </li>
+          <li>
+            Kid: <a className={btn.link} href="/kid">study-plan-savin.vercel.app/kid</a>
+          </li>
+        </ul>
+      </Card>
+
+      <Card className="mt-6 max-w-xl">
+        <CardHeader
           title="Account"
           description={parent.email ? `Signed in as ${parent.email}.` : "Change the password you use to sign in."}
         />
