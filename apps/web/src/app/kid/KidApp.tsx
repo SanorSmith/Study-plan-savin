@@ -129,7 +129,7 @@ function PairScreen({ band, onDone }: { band: AgeBand; onDone: () => void }) {
   return (
     <form onSubmit={submit} className={`${look.card} space-y-4`}>
       <h1 className={look.heading}>{copy.pairTitle}</h1>
-      <p className="text-lg opacity-80">{copy.pairHint}</p>
+      <p className="text-lg opacity-70">{copy.pairHint}</p>
       <input
         value={value}
         onChange={(e) => setValue(e.target.value.toUpperCase())}

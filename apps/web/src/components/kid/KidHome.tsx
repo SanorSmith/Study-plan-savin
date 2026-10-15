@@ -52,6 +52,7 @@ export function KidHome({
   const [celebrate, setCelebrate] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [answeredAny, setAnsweredAny] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 15_000);
@@ -80,7 +81,7 @@ export function KidHome({
 
   const tone = {
     good: "bg-emerald-100 text-emerald-900",
-    info: "bg-slate-100 text-slate-800",
+    info: "bg-sky-100 text-sky-900",
     bad: "bg-rose-100 text-rose-900",
   };
   const q = state.question;
@@ -92,12 +93,14 @@ export function KidHome({
       <main className="mx-auto max-w-md space-y-5 px-4 py-6">
         <h1 className={look.heading}>{copy.hi(state.name)}</h1>
 
-        <section className={`${look.card} space-y-3 text-center`}>
-          <p className={look.label}>{copy.bank}</p>
+        <section className={`${look.hero} space-y-3 text-center`}>
           <TimeGauge minutes={state.balanceMinutes} look={look} unit={copy.minutes} emoji={band === "little"} />
-          {window?.mode === "blocked" && <p className="rounded-xl bg-rose-100 p-3 text-base font-semibold text-rose-900">{copy.locked(minuteLabel(window.endMinute))}</p>}
-          {window?.mode === "free" && <p className="rounded-xl bg-emerald-100 p-3 text-base font-semibold text-emerald-900">{copy.free(minuteLabel(window.endMinute))}</p>}
-          <p className="text-sm opacity-70">{copy.automatic}</p>
+          {window?.mode === "blocked" && <p className="rounded-full bg-black/25 px-4 py-2 text-base font-bold">{copy.locked(minuteLabel(window.endMinute))}</p>}
+          {window?.mode === "free" && <p className="rounded-full bg-white/25 px-4 py-2 text-base font-bold">{copy.free(minuteLabel(window.endMinute))}</p>}
+          <button type="button" onClick={() => setShowInfo((v) => !v)} aria-expanded={showInfo} aria-label="What is this?" className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/25 text-base font-bold">
+            {showInfo ? "×" : "?"}
+          </button>
+          {showInfo && <p className="text-sm font-medium opacity-95">{copy.info}</p>}
         </section>
 
         <div aria-live="polite" className="space-y-2">
@@ -112,9 +115,10 @@ export function KidHome({
         {q ? (
           <section className={`${look.card} space-y-4`}>
             {state.progress && <Progress done={state.progress.done} total={state.progress.total} band={band} look={look} />}
-            <p className={look.label}>
-              {q.subject} · {copy.yourTurn} · up to {Math.min(state.minutesPerQuestion, state.earnableTodayMinutes)} {copy.minutes}
-            </p>
+            <div className="flex flex-wrap gap-2">
+              <span className={look.pill}>{q.subject}</span>
+              <span className={look.pill}>+{Math.min(state.minutesPerQuestion, state.earnableTodayMinutes)} {copy.minutes}</span>
+            </div>
             <p className={look.question}>{q.text}</p>
 
             {q.type === "multiple_choice" && q.options ? (
@@ -148,7 +152,7 @@ export function KidHome({
                   onChange={(e) => setAnswer(e.target.value)}
                   inputMode={q.type === "numeric" ? "decimal" : "text"}
                   aria-label="Your answer"
-                  className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-xl text-slate-900"
+                  className="min-w-0 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-xl text-slate-900 focus:border-violet-400 focus:outline-none"
                 />
                 <button disabled={busy || !answer.trim()} className={look.primary}>
                   {copy.answer}

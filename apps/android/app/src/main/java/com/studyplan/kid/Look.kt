@@ -1,22 +1,24 @@
 package com.studyplan.kid
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** How the app looks and feels for one age band. Little kids get big, colorful and playful; teens get clean and compact. */
+/**
+ * How the app looks and feels for one age band. Everything is bright and colorful, with as little text as possible
+ * (explanations hide behind a tap). Little kids get big, colorful and playful; teens get cleaner, with no emoji,
+ * but still light and colorful. There is no dark mode.
+ */
 data class Look(
     val band: AgeBand,
     val scheme: ColorScheme,
@@ -26,19 +28,19 @@ data class Look(
     val bigKeypad: Boolean, // numeric answers use an on-screen number pad
     val pageStart: Color, // the top of the page gradient
     val pageEnd: Color,
+    val hero: List<Color>, // the big colored card with the time ring
+    val options: List<Color>, // one color per answer choice
+    val optionText: List<Color>,
 )
 
-val LocalLook = staticCompositionLocalOf { Looks.of(AgeBand.Middle, dark = false) }
-
-/** Colors for the little kids' multiple choice buttons, one per option. */
-val OptionColors = listOf(Color(0xFFEF476F), Color(0xFF118AB2), Color(0xFF06A77D), Color(0xFFFFB703))
+val LocalLook = staticCompositionLocalOf { Looks.of(AgeBand.Middle) }
 
 object Looks {
-    fun of(band: AgeBand, dark: Boolean): Look = when (band) {
+    fun of(band: AgeBand): Look = when (band) {
         AgeBand.Little -> Look(
             band = band,
             scheme = lightColorScheme(
-                primary = Color(0xFF6C4CF1),
+                primary = Color(0xFF7C3AED),
                 onPrimary = Color.White,
                 primaryContainer = Color(0xFFEDE7FF),
                 onPrimaryContainer = Color(0xFF3B1FA8),
@@ -57,8 +59,11 @@ object Looks {
             textScale = 1.3f,
             emoji = true,
             bigKeypad = true,
-            pageStart = Color(0xFFFFE9A8),
-            pageEnd = Color(0xFFD9F0FF),
+            pageStart = Color(0xFFFDE68A),
+            pageEnd = Color(0xFFBAE6FD),
+            hero = listOf(Color(0xFFD946EF), Color(0xFF8B5CF6), Color(0xFF0EA5E9)),
+            options = listOf(Color(0xFFEF476F), Color(0xFF118AB2), Color(0xFF06A77D), Color(0xFFFFB703)),
+            optionText = listOf(Color.White, Color.White, Color.White, Color(0xFF1F1B3A)),
         )
         AgeBand.Middle -> Look(
             band = band,
@@ -68,65 +73,48 @@ object Looks {
                 primaryContainer = Color(0xFFE0E7FF),
                 onPrimaryContainer = Color(0xFF312E81),
                 secondary = Color(0xFF0EA5E9),
-                background = Color(0xFFEEF2FF),
+                background = Color(0xFFECFEFF),
                 onBackground = Color(0xFF0F172A),
                 surface = Color.White,
                 onSurface = Color(0xFF0F172A),
                 surfaceVariant = Color(0xFFEEF2FF),
                 error = Color(0xFFE11D48),
             ),
-            corner = 20.dp,
+            corner = 24.dp,
             textScale = 1.1f,
             emoji = true,
             bigKeypad = false,
-            pageStart = Color(0xFFE0F2FE),
-            pageEnd = Color(0xFFE0E7FF),
+            pageStart = Color(0xFFCFFAFE),
+            pageEnd = Color(0xFFFAE8FF),
+            hero = listOf(Color(0xFF6366F1), Color(0xFF0EA5E9), Color(0xFF22D3EE)),
+            options = listOf(Color(0xFFE0F2FE), Color(0xFFFCE7F3), Color(0xFFECFCCB), Color(0xFFFEF3C7)),
+            optionText = listOf(Color(0xFF0C4A6E), Color(0xFF831843), Color(0xFF365314), Color(0xFF78350F)),
         )
-        AgeBand.Teen -> if (dark) {
-            Look(
-                band = band,
-                scheme = darkColorScheme(
-                    primary = Color(0xFFF1F5F9),
-                    onPrimary = Color(0xFF0F172A),
-                    primaryContainer = Color(0xFF1E293B),
-                    onPrimaryContainer = Color(0xFFF1F5F9),
-                    background = Color(0xFF020617),
-                    onBackground = Color(0xFFF1F5F9),
-                    surface = Color(0xFF0F172A),
-                    onSurface = Color(0xFFF1F5F9),
-                    surfaceVariant = Color(0xFF1E293B),
-                    error = Color(0xFFFB7185),
-                ),
-                corner = 12.dp,
-                textScale = 1f,
-                emoji = false,
-                bigKeypad = false,
-                pageStart = Color(0xFF020617),
-                pageEnd = Color(0xFF020617),
-            )
-        } else {
-            Look(
-                band = band,
-                scheme = lightColorScheme(
-                    primary = Color(0xFF0F172A),
-                    onPrimary = Color.White,
-                    primaryContainer = Color(0xFFE2E8F0),
-                    onPrimaryContainer = Color(0xFF0F172A),
-                    background = Color(0xFFF8FAFC),
-                    onBackground = Color(0xFF0F172A),
-                    surface = Color.White,
-                    onSurface = Color(0xFF0F172A),
-                    surfaceVariant = Color(0xFFF1F5F9),
-                    error = Color(0xFFE11D48),
-                ),
-                corner = 12.dp,
-                textScale = 1f,
-                emoji = false,
-                bigKeypad = false,
-                pageStart = Color(0xFFF8FAFC),
-                pageEnd = Color(0xFFF8FAFC),
-            )
-        }
+        AgeBand.Teen -> Look(
+            band = band,
+            scheme = lightColorScheme(
+                primary = Color(0xFF7C3AED),
+                onPrimary = Color.White,
+                primaryContainer = Color(0xFFEDE9FE),
+                onPrimaryContainer = Color(0xFF4C1D95),
+                secondary = Color(0xFFC026D3),
+                background = Color(0xFFF5F3FF),
+                onBackground = Color(0xFF0F172A),
+                surface = Color.White,
+                onSurface = Color(0xFF0F172A),
+                surfaceVariant = Color(0xFFF5F3FF),
+                error = Color(0xFFE11D48),
+            ),
+            corner = 18.dp,
+            textScale = 1f,
+            emoji = false,
+            bigKeypad = false,
+            pageStart = Color(0xFFEDE9FE),
+            pageEnd = Color(0xFFCCFBF1),
+            hero = listOf(Color(0xFF7C3AED), Color(0xFFC026D3), Color(0xFFF97316)),
+            options = listOf(Color(0xFF7C3AED), Color(0xFFC026D3), Color(0xFFF97316), Color(0xFF0D9488)),
+            optionText = listOf(Color(0xFF0F172A), Color(0xFF0F172A), Color(0xFF0F172A), Color(0xFF0F172A)),
+        )
     }
 }
 
@@ -150,10 +138,10 @@ private fun Typography.scaled(factor: Float) = Typography(
     labelSmall = labelSmall.scaled(factor),
 )
 
-/** Applies the look for [band]: colors, shapes and text size. Teens follow the phone's dark mode; younger kids always get the bright look. */
+/** Applies the look for [band]: colors, shapes and text size. Always the bright look, whatever the phone's theme. */
 @Composable
 fun StudyTheme(band: AgeBand, content: @Composable () -> Unit) {
-    val look = Looks.of(band, dark = band == AgeBand.Teen && isSystemInDarkTheme())
+    val look = Looks.of(band)
     val shapes = Shapes(
         small = RoundedCornerShape(look.corner * 0.5f),
         medium = RoundedCornerShape(look.corner * 0.75f),
@@ -165,12 +153,11 @@ fun StudyTheme(band: AgeBand, content: @Composable () -> Unit) {
     }
 }
 
-/** The words of the app for one age band: simple and cheerful for little kids, short and plain for teens. */
+/** The words of the app for one age band: simple and cheerful for little kids, short and plain for teens. As few as possible. */
 data class Copy(
     val hi: (String) -> String,
-    val bank: String,
     val minutes: String,
-    val yourTurn: String,
+    val info: String, // the one explanation, shown only when the kid taps the ? button
     val allDone: String,
     val noHomework: String,
     val correct: (Int) -> String,
@@ -180,7 +167,6 @@ data class Copy(
     val answer: String,
     val locked: (String) -> String,
     val free: (String) -> String,
-    val automatic: String,
     val pairTitle: String,
     val pairHint: String,
     val pinTitle: String,
@@ -191,62 +177,56 @@ object Copies {
     fun of(band: AgeBand): Copy = when (band) {
         AgeBand.Little -> Copy(
             hi = { "Hi $it! 👋" },
-            bank = "Your play time",
             minutes = "minutes",
-            yourTurn = "Your turn! ⭐",
-            allDone = "All done! 🎉 You finished your homework!",
-            noHomework = "No homework right now. Time to play! 🎈",
-            correct = { m -> if (m > 0) "Yay! You got it! 🎉 +$m minutes" else "Yay! You got it! 🎉" },
-            correctNoMinutes = "Yay! Right! 🎉 That is all the play time for today.",
-            tryAgain = { n -> "Oops! Try again 💪 ($n ${if (n == 1) "try" else "tries"} left)" },
-            wrongFinal = "Not this time. On to the next one! 🌈",
+            info = "Your play time counts down while you use other apps. Answer questions to get more! ⭐",
+            allDone = "All done! 🎉",
+            noHomework = "No homework. Time to play! 🎈",
+            correct = { m -> if (m > 0) "Yay! 🎉 +$m" else "Yay! 🎉" },
+            correctNoMinutes = "Yay! 🎉 That's all for today!",
+            tryAgain = { n -> "Oops! Try again 💪 " + "❤️".repeat(n.coerceIn(0, 3)) },
+            wrongFinal = "Next one! 🌈",
             answer = "Done ✅",
-            locked = { "Sleepy time 🌙 Back at $it" },
-            free = { "Free play until $it! 🎈" },
-            automatic = "Your play time counts down while you use other apps.",
+            locked = { "🌙 Back at $it" },
+            free = { "🎈 Free play until $it" },
             pairTitle = "Let's connect! 🔗",
-            pairHint = "Ask a grown-up for the code.",
-            pinTitle = "What is your secret number? 🔒",
+            pairHint = "Ask a grown-up for the code",
+            pinTitle = "Secret number 🔒",
             celebrateEmoji = "🎉 ⭐ 🎈",
         )
         AgeBand.Middle -> Copy(
             hi = { "Hi $it" },
-            bank = "Screen time bank",
             minutes = "min",
-            yourTurn = "Next question",
-            allDone = "All done! ⭐ Nice work on your homework.",
-            noHomework = "No homework waiting. Ask a parent to add some.",
-            correct = { m -> if (m > 0) "Correct! +$m minutes" else "Correct!" },
-            correctNoMinutes = "Correct! You have reached today's limit, so no more minutes today.",
-            tryAgain = { n -> "Not quite. Try again ($n ${if (n == 1) "try" else "tries"} left)." },
-            wrongFinal = "Not quite. No minutes for this one.",
+            info = "Minutes are used while you use other apps. Answer questions to earn more.",
+            allDone = "All done! ⭐",
+            noHomework = "No homework right now",
+            correct = { m -> if (m > 0) "Correct! +$m" else "Correct!" },
+            correctNoMinutes = "Correct! Daily limit reached",
+            tryAgain = { n -> "Not quite. $n ${if (n == 1) "try" else "tries"} left" },
+            wrongFinal = "Not this time",
             answer = "Answer",
-            locked = { "The phone is locked until $it." },
-            free = { "Free time until $it. No minutes are used." },
-            automatic = "Minutes are used automatically while you use other apps.",
-            pairTitle = "Connect this device",
-            pairHint = "Ask a parent for the pairing code.",
-            pinTitle = "Enter your PIN",
+            locked = { "Locked until $it" },
+            free = { "Free time until $it" },
+            pairTitle = "Connect",
+            pairHint = "Ask a parent for the code",
+            pinTitle = "Your PIN",
             celebrateEmoji = "⭐",
         )
         AgeBand.Teen -> Copy(
             hi = { it },
-            bank = "Screen time left",
             minutes = "min",
-            yourTurn = "Question",
-            allDone = "All done for now.",
-            noHomework = "No homework waiting.",
-            correct = { m -> if (m > 0) "Correct. +$m min" else "Correct" },
-            correctNoMinutes = "Correct. Daily limit reached, no more minutes today.",
-            tryAgain = { n -> "Incorrect. $n ${if (n == 1) "try" else "tries"} left." },
-            wrongFinal = "Incorrect. No minutes for this one.",
+            info = "Minutes are used while the screen is on and another app is open. Answer questions to earn more.",
+            allDone = "All done",
+            noHomework = "No homework",
+            correct = { m -> if (m > 0) "Correct +$m min" else "Correct" },
+            correctNoMinutes = "Correct. Daily limit reached",
+            tryAgain = { n -> "Incorrect. $n left" },
+            wrongFinal = "Incorrect",
             answer = "Submit",
-            locked = { "Locked until $it." },
-            free = { "Free time until $it. No minutes used." },
-            automatic = "Minutes are used while the screen is on and another app is open.",
-            pairTitle = "Connect device",
-            pairHint = "Enter the pairing code from your parent.",
-            pinTitle = "Enter PIN",
+            locked = { "Locked until $it" },
+            free = { "Free until $it" },
+            pairTitle = "Connect",
+            pairHint = "Code from your parent",
+            pinTitle = "PIN",
             celebrateEmoji = "",
         )
     }

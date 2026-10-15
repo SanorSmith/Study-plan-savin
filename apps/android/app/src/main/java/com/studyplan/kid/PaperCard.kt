@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -19,6 +20,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -28,37 +30,34 @@ import java.io.File
 
 private const val MAX_PAGES = 3
 
-private class PaperWords(val title: String, val intro: (Boolean) -> String, val ai: String, val parent: String, val toParent: String, val takePhoto: String, val gallery: String, val which: String)
+private class PaperWords(val title: String, val ai: String, val parent: String, val toParent: String, val takePhoto: String, val gallery: String, val which: String)
 
 private fun paperWords(band: AgeBand) = when (band) {
     AgeBand.Little -> PaperWords(
-        title = "Did it on paper? 📝",
-        intro = { ai -> if (ai) "Take a picture of your paper! Pick who checks it." else "Take a picture of your paper. A grown-up will check it." },
-        ai = "Check with the computer 🤖",
-        parent = "Check with a grown-up 👪",
-        toParent = "Send to a grown-up 👪",
+        title = "📝 Did it on paper?",
+        ai = "🤖 Check with the computer",
+        parent = "👪 Check with a grown-up",
+        toParent = "👪 Send to a grown-up",
         takePhoto = "📷 Take a picture",
-        gallery = "🖼️ From gallery",
+        gallery = "🖼️ Gallery",
         which = "Which homework?",
     )
     AgeBand.Middle -> PaperWords(
-        title = "Did it on paper?",
-        intro = { ai -> if (ai) "Take a photo of your finished paper, then choose who checks it." else "Take a photo of your finished paper. A parent checks it." },
+        title = "📝 Did it on paper?",
         ai = "Check with AI",
         parent = "Check with parent",
         toParent = "Send to my parent",
-        takePhoto = "Take a photo",
-        gallery = "From gallery",
+        takePhoto = "📷 Take a photo",
+        gallery = "Gallery",
         which = "Which homework?",
     )
     AgeBand.Teen -> PaperWords(
         title = "Homework on paper",
-        intro = { ai -> if (ai) "Photograph your paper. The AI can check it now, or a parent can." else "Photograph your paper. A parent checks it." },
         ai = "Check with AI",
         parent = "Check with parent",
         toParent = "Send to parent",
         takePhoto = "Take a photo",
-        gallery = "From gallery",
+        gallery = "Gallery",
         which = "Homework",
     )
 }
@@ -87,10 +86,20 @@ fun PaperCard(vm: StudyViewModel, sets: List<PaperSet>, aiCheckEnabled: Boolean)
         pages = (pages + uris.map(Uri::toString)).take(MAX_PAGES)
     }
 
+    var open by rememberSaveable { mutableStateOf(false) }
+    if (!open) {
+        OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth().height(60.dp)) {
+            Text(words.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+        return
+    }
+
     val set = sets[selected.coerceIn(0, sets.lastIndex)]
     LookCard {
-        Text(words.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(words.intro(aiCheckEnabled), style = MaterialTheme.typography.bodyMedium)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(words.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            TextButton(onClick = { open = false }) { Text("✕", style = MaterialTheme.typography.titleLarge) }
+        }
 
         if (sets.size > 1) {
             Text(words.which, style = MaterialTheme.typography.labelLarge)
@@ -124,21 +133,21 @@ fun PaperCard(vm: StudyViewModel, sets: List<PaperSet>, aiCheckEnabled: Boolean)
         }
 
         if (pages.isNotEmpty()) {
-            Text("${pages.size} of $MAX_PAGES photos ready", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text("${pages.size}/$MAX_PAGES 📷", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             val uris = pages.map(Uri::parse)
             if (aiCheckEnabled) {
-                Button(enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(56.dp), onClick = { vm.sendPaper(set.id, uris, "ai") { pages = emptyList() } }) {
+                Button(enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(56.dp), onClick = { vm.sendPaper(set.id, uris, "ai") { pages = emptyList(); open = false } }) {
                     Text(if (vm.busy) "…" else words.ai, style = MaterialTheme.typography.titleMedium)
                 }
-                OutlinedButton(enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(52.dp), onClick = { vm.sendPaper(set.id, uris, "parent") { pages = emptyList() } }) {
+                OutlinedButton(enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(52.dp), onClick = { vm.sendPaper(set.id, uris, "parent") { pages = emptyList(); open = false } }) {
                     Text(words.parent)
                 }
             } else {
-                Button(enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(56.dp), onClick = { vm.sendPaper(set.id, uris, "parent") { pages = emptyList() } }) {
+                Button(enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(56.dp), onClick = { vm.sendPaper(set.id, uris, "parent") { pages = emptyList(); open = false } }) {
                     Text(if (vm.busy) "…" else words.toParent, style = MaterialTheme.typography.titleMedium)
                 }
             }
-            OutlinedButton(enabled = !vm.busy, onClick = { pages = pages.dropLast(1) }) { Text("Remove last") }
+            OutlinedButton(enabled = !vm.busy, onClick = { pages = pages.dropLast(1) }) { Text("↩") }
         }
     }
 }

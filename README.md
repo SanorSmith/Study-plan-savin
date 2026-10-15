@@ -3,7 +3,7 @@
 Homework first, screen time after. Kids earn screen-time minutes by answering homework correctly, and an Android app makes the phone follow the rules.
 
 - **Parents** use the website: add kids, turn a worksheet photo into homework, set a schedule, give bonus time, check papers, and see every answer.
-- **Kids** use the Android app (or the web page on an iPhone). The look fits the kid's age: big and colorful for the youngest, clean and compact for teens.
+- **Kids** use the Android app (or the web page on an iPhone). The look fits the kid's age and is bright and colorful with very little text: big and playful for the youngest, cleaner for teens.
 
 Website: https://study-plan-savin.vercel.app
 

@@ -2,7 +2,6 @@ package com.studyplan.kid
 
 import android.content.Context
 import android.content.Intent
-import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -26,15 +25,10 @@ class LockOverlay(private val context: Context) {
 
     private class Palette(val background: Int, val title: Int, val body: Int, val button: Int, val buttonText: Int, val titleSize: Float, val bodySize: Float)
 
-    private fun palette(band: AgeBand): Palette {
-        val night = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        return when (band) {
-            AgeBand.Little -> Palette(Color.parseColor("#FFF3D6"), Color.parseColor("#6C4CF1"), Color.parseColor("#1F1B3A"), Color.parseColor("#6C4CF1"), Color.WHITE, 40f, 22f)
-            AgeBand.Middle -> Palette(Color.parseColor("#EEF2FF"), Color.parseColor("#4F46E5"), Color.parseColor("#0F172A"), Color.parseColor("#4F46E5"), Color.WHITE, 34f, 19f)
-            AgeBand.Teen ->
-                if (night) Palette(Color.parseColor("#020617"), Color.parseColor("#F1F5F9"), Color.parseColor("#CBD5E1"), Color.parseColor("#F1F5F9"), Color.parseColor("#0F172A"), 28f, 17f)
-                else Palette(Color.parseColor("#F8FAFC"), Color.parseColor("#0F172A"), Color.parseColor("#475569"), Color.parseColor("#0F172A"), Color.WHITE, 28f, 17f)
-        }
+    private fun palette(band: AgeBand): Palette = when (band) {
+        AgeBand.Little -> Palette(Color.parseColor("#FFF3D6"), Color.parseColor("#7C3AED"), Color.parseColor("#1F1B3A"), Color.parseColor("#7C3AED"), Color.WHITE, 40f, 22f)
+        AgeBand.Middle -> Palette(Color.parseColor("#ECFEFF"), Color.parseColor("#4F46E5"), Color.parseColor("#0F172A"), Color.parseColor("#4F46E5"), Color.WHITE, 34f, 19f)
+        AgeBand.Teen -> Palette(Color.parseColor("#F5F3FF"), Color.parseColor("#7C3AED"), Color.parseColor("#334155"), Color.parseColor("#7C3AED"), Color.WHITE, 28f, 17f)
     }
 
     fun show(reason: LockReason, untilMinute: Int?) {
