@@ -2,7 +2,9 @@ package com.studyplan.parent
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.content.Context
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Build
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,6 +18,10 @@ sealed interface Screen {
     data object Home : Screen
     data class Kid(val id: String) : Screen
     data class Paper(val id: String) : Screen
+    data object AddKid : Screen
+    data class EditKid(val id: String) : Screen
+    data class Results(val id: String) : Screen
+    data class NewHomework(val id: String) : Screen
 }
 
 class ParentViewModel(app: Application) : AndroidViewModel(app) {
@@ -33,6 +39,14 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
     var paper by mutableStateOf<PaperDetail?>(null)
         private set
     var photos by mutableStateOf<List<Bitmap?>>(emptyList())
+        private set
+    var kid by mutableStateOf<KidDetail?>(null)
+        private set
+    var drafts by mutableStateOf<List<QuestionDraft>>(emptyList())
+    var newCode by mutableStateOf<String?>(null)
+        private set
+    /** Bumped when the AI changes the ticks of the open paper, so the screen starts again from them. */
+    var paperVersion by mutableStateOf(0)
         private set
 
     fun clearMessages() {
@@ -104,6 +118,124 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
         val r = call(t)
         message = done.replace("{n}", r.changedMinutes.toString())
         state = ParentApi.state(t)
+        reloadKid(t)
+    }
+
+    /** Refreshes the open kid page (after a change, or when it is opened). */
+    private suspend fun reloadKid(t: String) {
+        val id = when (val s = screen) {
+            is Screen.Kid -> s.id
+            is Screen.Results -> s.id
+            is Screen.EditKid -> s.id
+            else -> return
+        }
+        kid = ParentApi.kid(t, id)
+    }
+
+    fun openKid(id: String) {
+        clearMessages()
+        newCode = null
+        kid = null
+        screen = Screen.Kid(id)
+        run { t -> reloadKid(t) }
+    }
+
+    fun openResults(id: String) {
+        clearMessages()
+        screen = Screen.Results(id)
+        run { t -> reloadKid(t) }
+    }
+
+    fun openEdit(id: String) {
+        clearMessages()
+        screen = Screen.EditKid(id)
+        run { t -> reloadKid(t) }
+    }
+
+    fun openNewHomework(id: String) {
+        clearMessages()
+        drafts = emptyList()
+        screen = Screen.NewHomework(id)
+    }
+
+    fun goHome() {
+        clearMessages()
+        paper = null
+        newCode = null
+        screen = Screen.Home
+    }
+
+    fun back() {
+        when (val s = screen) {
+            is Screen.Results, is Screen.EditKid, is Screen.NewHomework -> {
+                val id = when (s) {
+                    is Screen.Results -> s.id
+                    is Screen.EditKid -> s.id
+                    is Screen.NewHomework -> s.id
+                    else -> ""
+                }
+                openKid(id)
+            }
+            else -> goHome()
+        }
+    }
+
+    fun createKid(profile: KidProfile, pin: String) = run { t ->
+        val id = ParentApi.createKid(t, profile, pin)
+        state = ParentApi.state(t)
+        message = "${profile.name} was added. Pair their phone with a code."
+        screen = Screen.Kid(id)
+        kid = ParentApi.kid(t, id)
+    }
+
+    fun updateKid(id: String, profile: KidProfile, pin: String) = run { t ->
+        ParentApi.updateKid(t, id, profile, pin)
+        state = ParentApi.state(t)
+        message = "Saved."
+        screen = Screen.Kid(id)
+        kid = ParentApi.kid(t, id)
+    }
+
+    fun addRule(id: String, mode: String, days: Int, start: String, end: String) = run { t ->
+        ParentApi.addRule(t, id, mode, days, start, end)
+        message = "Time window added."
+        reloadKid(t)
+    }
+
+    fun deleteRule(id: String, ruleId: String) = run { t ->
+        ParentApi.deleteRule(t, id, ruleId)
+        message = "Time window removed."
+        reloadKid(t)
+    }
+
+    fun pairPhone(id: String) = run { t ->
+        newCode = ParentApi.pairPhone(t, id)
+        reloadKid(t)
+    }
+
+    /** Sends a worksheet photo to be read; the suggested questions show up for editing. */
+    fun readWorksheet(context: Context, uri: Uri, grade: Int) = run { t ->
+        val jpeg = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { ImageShrink.toJpeg(context, uri) }
+        val found = ParentApi.extractHomework(t, jpeg, grade)
+        drafts = found
+        if (found.isEmpty()) error = "No questions were found in the photo. Try a clearer, closer photo."
+    }
+
+    fun assignHomework(id: String, subject: String) = run { t ->
+        ParentApi.assignHomework(t, id, subject, drafts)
+        drafts = emptyList()
+        message = "Homework assigned."
+        state = ParentApi.state(t)
+        screen = Screen.Results(id)
+        kid = ParentApi.kid(t, id)
+    }
+
+    fun askAi(paperId: String) = run { t ->
+        ParentApi.askAi(t, paperId)
+        val detail = ParentApi.paper(t, paperId)
+        paper = detail
+        message = "The AI ticked what looks right. Check it against the photos."
+        paperVersion += 1
     }
 
     fun bonus(kidId: String, minutes: Int) = act("Added ${minutesLabel(minutes)}.") { ParentApi.bonus(it, kidId, minutes) }

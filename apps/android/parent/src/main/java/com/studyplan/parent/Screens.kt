@@ -42,7 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @Composable
-private fun Page(content: @Composable () -> Unit) {
+internal fun Page(content: @Composable () -> Unit) {
     Column(
         Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -50,7 +50,7 @@ private fun Page(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Messages(vm: ParentViewModel) {
+internal fun Messages(vm: ParentViewModel) {
     vm.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge) }
     vm.message?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold) }
 }
@@ -110,10 +110,10 @@ fun HomeScreen(vm: ParentViewModel) {
             }
             Text("Your kids", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             if (state.kids.isEmpty()) {
-                Text("No kids yet. Add a kid on the website first.", style = MaterialTheme.typography.bodyLarge)
+                Text("No kids yet. Add your first kid.", style = MaterialTheme.typography.bodyLarge)
             }
             state.kids.forEach { k ->
-                Card(Modifier.fillMaxWidth().clickable { vm.clearMessages(); vm.screen = Screen.Kid(k.id) }) {
+                Card(Modifier.fillMaxWidth().clickable { vm.openKid(k.id) }) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(k.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -130,6 +130,9 @@ fun HomeScreen(vm: ParentViewModel) {
                 }
             }
         }
+        if (state != null) {
+            Button(onClick = { vm.clearMessages(); vm.screen = Screen.AddKid }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Add a kid") }
+        }
         Spacer(Modifier.height(8.dp))
         TextButton(onClick = { confirmSignOut = true }) { Text("Disconnect this phone") }
     }
@@ -145,107 +148,12 @@ fun HomeScreen(vm: ParentViewModel) {
 }
 
 @Composable
-fun KidScreen(vm: ParentViewModel, kidId: String) {
-    val kid = vm.state?.kids?.firstOrNull { it.id == kidId }
-    var withdraw by rememberSaveable { mutableStateOf("") }
-    var confirmEmpty by remember { mutableStateOf(false) }
-    Page {
-        TextButton(onClick = { vm.clearMessages(); vm.screen = Screen.Home }) { Text("← All kids") }
-        if (kid == null) {
-            Text("This kid was not found.", style = MaterialTheme.typography.bodyLarge)
-            return@Page
-        }
-        Text(kid.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text(minutesLabel(kid.balanceMinutes) + " in the bank", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-        Messages(vm)
-
-        val papers = vm.state?.papers.orEmpty().filter { it.kidId == kid.id }
-        if (papers.isNotEmpty()) {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Papers to check", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    papers.forEach { p -> OutlinedButton(onClick = { vm.clearMessages(); vm.openPaper(p.id) }, modifier = Modifier.fillMaxWidth()) { Text(p.subject) } }
-                }
-            }
-        }
-
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Give bonus time", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    listOf(5, 10, 15, 30).forEach { m ->
-                        Button(onClick = { vm.bonus(kid.id, m) }, enabled = !vm.busy, modifier = Modifier.weight(1f)) { Text("+$m") }
-                    }
-                }
-                Text("Bonus minutes do not count toward the daily limit.", style = MaterialTheme.typography.bodySmall)
-            }
-        }
-
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Take minutes out of the bank", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = withdraw,
-                        onValueChange = { withdraw = it.filter(Char::isDigit).take(5) },
-                        label = { Text("Minutes") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                    )
-                    Button(
-                        onClick = { vm.withdraw(kid.id, withdraw.toInt()); withdraw = "" },
-                        enabled = !vm.busy && (withdraw.toIntOrNull() ?: 0) > 0,
-                    ) { Text("Take out") }
-                }
-                OutlinedButton(onClick = { confirmEmpty = true }, enabled = !vm.busy && kid.balanceMinutes > 0, modifier = Modifier.fillMaxWidth()) { Text("Empty the bank") }
-            }
-        }
-
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Let the kid choose AI checking", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(
-                            if (kid.aiCheckEnabled) "On: the AI can check a paper and add the minutes at once." else "Off: every paper comes to you.",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                    Switch(checked = kid.aiCheckEnabled, onCheckedChange = { vm.setAi(kid.id, it) }, enabled = !vm.busy)
-                }
-                HorizontalDivider()
-                Text("Settings on the kid's phone", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    if (kid.approvedForSettings) "Open for a few minutes." else "Closed. The kid cannot open Settings or uninstall the app.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                if (kid.approvedForSettings) {
-                    OutlinedButton(onClick = { vm.allowSettings(kid.id, false) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) { Text("Close Settings now") }
-                } else {
-                    OutlinedButton(onClick = { vm.allowSettings(kid.id, true) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) { Text("Allow Settings for 10 minutes") }
-                }
-            }
-        }
-    }
-    if (confirmEmpty && kid != null) {
-        AlertDialog(
-            onDismissRequest = { confirmEmpty = false },
-            title = { Text("Empty ${kid.name}'s bank?") },
-            text = { Text("All ${minutesLabel(kid.balanceMinutes)} are taken out. This cannot be undone.") },
-            confirmButton = { TextButton(onClick = { confirmEmpty = false; vm.emptyBank(kid.id) }) { Text("Empty it") } },
-            dismissButton = { TextButton(onClick = { confirmEmpty = false }) { Text("Cancel") } },
-        )
-    }
-}
-
-@Composable
 fun PaperScreen(vm: ParentViewModel, paperId: String) {
     val paper = vm.paper?.takeIf { it.id == paperId }
-    var ticks by remember(paper?.id) { mutableStateOf(paper?.let { startingTicks(it.answers, it.aiRead) } ?: emptySet()) }
+    var ticks by remember(paper?.id, vm.paperVersion) { mutableStateOf(paper?.let { startingTicks(it.answers, it.aiRead) } ?: emptySet()) }
     var enlarged by remember { mutableStateOf<Int?>(null) }
     Page {
-        TextButton(onClick = { vm.clearMessages(); vm.screen = Screen.Home }) { Text("← Back") }
+        TextButton(onClick = { vm.goHome() }) { Text("← Back") }
         if (paper == null) {
             Text(if (vm.busy) "Loading the paper…" else "Could not load this paper.", style = MaterialTheme.typography.bodyLarge)
             Messages(vm)
@@ -317,7 +225,10 @@ fun PaperScreen(vm: ParentViewModel, paperId: String) {
                 Text(if (vm.busy) "…" else if (count == 0) "Approve, nothing counted" else "Approve ($count counted)")
             }
             OutlinedButton(onClick = { vm.decide(paper.id, null) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Send back, no minutes") }
-            Text("Want the AI to suggest answers? Do that on the website.", style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            OutlinedButton(onClick = { vm.askAi(paper.id) }, enabled = !vm.busy && paper.imageCount > 0, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                Text(if (vm.busy) "Working…" else if (paper.aiRead) "Ask the AI again" else "Ask the AI for suggestions")
+            }
+            Text("The photos are only sent to the AI when you tap this.", style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
     }
 

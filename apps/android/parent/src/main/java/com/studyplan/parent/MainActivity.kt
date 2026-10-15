@@ -69,15 +69,16 @@ private fun Root(vm: ParentViewModel) {
         PairScreen(vm)
         return
     }
-    BackHandler(enabled = vm.screen != Screen.Home) {
-        vm.clearMessages()
-        vm.screen = Screen.Home
-    }
+    BackHandler(enabled = vm.screen != Screen.Home) { vm.back() }
     Box(Modifier.fillMaxSize()) {
         when (val s = vm.screen) {
             Screen.Home -> HomeScreen(vm)
             is Screen.Kid -> KidScreen(vm, s.id)
             is Screen.Paper -> PaperScreen(vm, s.id)
+            Screen.AddKid -> KidFormScreen(vm, null)
+            is Screen.EditKid -> KidFormScreen(vm, s.id)
+            is Screen.Results -> ResultsScreen(vm, s.id)
+            is Screen.NewHomework -> NewHomeworkScreen(vm, s.id)
         }
     }
 }

@@ -186,6 +186,44 @@ try {
     await act(kidId, { action: "block_settings" });
     check("unknown action rejected", (await act(kidId, { action: "nope" })).status === 400);
 
+    // kid management from the app: create, edit, schedule, phones, homework
+    const made = await call("/api/parent/kids", ptoken, { profile: { name: "App kid", grade: 2, minutesPerQuestion: 5, dailyCapMinutes: 60, uiStyle: "little" }, pin: "4321" });
+    check("create a kid", made.status === 200 && !!made.json.id, made);
+    check("create rejects a bad grade", (await call("/api/parent/kids", ptoken, { profile: { name: "x", grade: 20, minutesPerQuestion: 5, dailyCapMinutes: 60 } })).status === 400);
+    check("create rejects a bad PIN", (await call("/api/parent/kids", ptoken, { profile: { name: "x", grade: 3, minutesPerQuestion: 5, dailyCapMinutes: 60 }, pin: "12" })).status === 400);
+    const newId = made.json.id;
+    let detail = await call(`/api/parent/kids/${newId}`, ptoken);
+    check("detail shows the profile and a PIN", detail.status === 200 && detail.json.name === "App kid" && detail.json.hasPin === true && detail.json.uiStyle === "little", detail);
+    check("update changes the profile", (await act(newId, { action: "update", profile: { name: "Renamed", grade: 5, minutesPerQuestion: 8, dailyCapMinutes: 90, uiStyle: "auto" } })).status === 200);
+    detail = await call(`/api/parent/kids/${newId}`, ptoken);
+    check("detail has the new profile", detail.json.name === "Renamed" && detail.json.grade === 5 && detail.json.minutesPerQuestion === 8 && detail.json.hasPin === true, detail.json);
+    check("update rejects bad input", (await act(newId, { action: "update", profile: { name: "", grade: 5, minutesPerQuestion: 8, dailyCapMinutes: 90 } })).status === 400);
+    check("rule: bad time rejected", (await act(newId, { action: "add_rule", mode: "blocked", days: 31, start: "25:00", end: "07:00" })).status === 400);
+    check("rule: no days rejected", (await act(newId, { action: "add_rule", mode: "blocked", days: 0, start: "21:00", end: "07:00" })).status === 400);
+    check("rule added", (await act(newId, { action: "add_rule", mode: "blocked", days: 31, start: "21:00", end: "07:00" })).status === 200);
+    detail = await call(`/api/parent/kids/${newId}`, ptoken);
+    check("detail lists the rule", detail.json.schedule.length === 1 && detail.json.schedule[0].startMinute === 1260 && detail.json.schedule[0].endMinute === 420, detail.json.schedule);
+    check("rule deleted", (await act(newId, { action: "delete_rule", ruleId: detail.json.schedule[0].id })).status === 200);
+    detail = await call(`/api/parent/kids/${newId}`, ptoken);
+    check("detail has no rules left", detail.json.schedule.length === 0);
+    const phone = await act(newId, { action: "pair_phone" });
+    check("a pairing code for the kid's phone", phone.status === 200 && /^[A-Z2-9]{8}$/.test(phone.json.code), phone);
+    const kidPair = await call("/api/device/pair", null, { code: phone.json.code }, `${RUN_IP}-kp`);
+    check("the kid's phone can pair with it", kidPair.status === 200 && !!kidPair.json.token, kidPair);
+    check("no homework yet", (await call(`/api/parent/kids/${newId}`, ptoken)).json.homework.length === 0);
+    check("homework needs a subject and questions", (await call(`/api/parent/kids/${newId}/homework`, ptoken, { subject: "", questions: [] })).status === 400);
+    check("homework key must match an option", (await call(`/api/parent/kids/${newId}/homework`, ptoken, { subject: "Math", questions: [{ text: "Pick", type: "multiple_choice", options: ["a", "b"], answerKey: "c" }] })).status === 400);
+    const hw = await call(`/api/parent/kids/${newId}/homework`, ptoken, { subject: "Math", questions: [{ text: "1+1?", type: "numeric", options: null, answerKey: "2" }, { text: "Pick b", type: "multiple_choice", options: ["a", "b"], answerKey: "b" }] });
+    check("homework assigned", hw.status === 200 && !!hw.json.id, hw);
+    detail = await call(`/api/parent/kids/${newId}`, ptoken);
+    check("results list the set", detail.json.homework.length === 1 && detail.json.homework[0].total === 2 && detail.json.homework[0].questions[0].answerKey === "2", detail.json.homework);
+    check("extract needs a token", (await call("/api/parent/homework/extract", null, { x: 1 })).status === 401);
+    check("extract needs an image", (await call("/api/parent/homework/extract", ptoken, { x: 1 })).status === 400);
+    const kidToken = kidPair.json.token;
+    check("kid with a PIN set can unlock", (await call("/api/kid/unlock", kidToken, { pin: "4321" })).status === 200);
+    const kst = await call("/api/kid/state", kidToken);
+    check("kid sees the assigned question", kst.status === 200 && kst.json.question?.text === "1+1?", kst.json);
+
     // a pending paper: review it and approve two of the questions
     const [sub] = await sql`insert into paper_submissions (kid_id, set_id, submitted_by, mode, ai_read) values (${kid.id}, ${set.id}, 'kid', 'parent', false) returning id`;
     for (const qid of ids) await sql`insert into paper_answers (submission_id, question_id, legible, ai_correct) values (${sub.id}, ${qid}, false, false)`;
@@ -215,6 +253,10 @@ try {
     check("another parent cannot act on the kid", (await call(`/api/parent/kids/${kidId}`, otherToken, { action: "bonus", minutes: 5 })).status === 404);
     check("another parent cannot read the paper", (await call(`/api/parent/papers/${sub.id}`, otherToken)).status === 404);
     check("another parent cannot decide the paper", (await call(`/api/parent/papers/${sub.id}`, otherToken, { decision: "reject" })).status === 404);
+    check("another parent cannot read a kid", (await call(`/api/parent/kids/${kidId}`, otherToken)).status === 404);
+    check("another parent cannot add homework", (await call(`/api/parent/kids/${kidId}/homework`, otherToken, { subject: "x", questions: [{ text: "q", type: "numeric", options: null, answerKey: "1" }] })).status === 404);
+    check("another parent cannot pair a phone", (await call(`/api/parent/kids/${kidId}`, otherToken, { action: "pair_phone" })).status === 404);
+    check("another parent cannot ask the AI", (await call(`/api/parent/papers/${sub.id}/ai`, otherToken, {})).status === 404);
   } finally {
     await sql`delete from parents where id = ${other.id}`;
     await sql`delete from rate_limits where key like ${"parent-pair:" + RUN_IP + "%"}`;
