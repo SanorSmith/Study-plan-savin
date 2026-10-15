@@ -11,6 +11,12 @@ const art = `
 const any = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><rect width="108" height="108" rx="24" fill="#6C4CF1"/>${art}</svg>`;
 const maskable = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><rect width="108" height="108" fill="#6C4CF1"/>${art}</svg>`;
 
-for (const [name, svg, size] of [["icon-192", any, 192], ["icon-512", any, 512], ["maskable-512", maskable, 512], ["apple-touch-icon", maskable, 180]]) {
+// The kid web app gets its own color so the two icons are easy to tell apart on a home screen.
+const kidArt = art.replace(/#6C4CF1/g, "#F59E0B").replace('fill="#FFB703"', 'fill="#6C4CF1"');
+const kidAny = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><rect width="108" height="108" rx="24" fill="#FFF3D6"/>${kidArt}</svg>`;
+const kidMaskable = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><rect width="108" height="108" fill="#FFF3D6"/>${kidArt}</svg>`;
+
+for (const [name, svg, size] of [["icon-192", any, 192], ["icon-512", any, 512], ["maskable-512", maskable, 512], ["apple-touch-icon", maskable, 180],
+  ["kid-icon-192", kidAny, 192], ["kid-icon-512", kidAny, 512], ["kid-maskable-512", kidMaskable, 512], ["kid-apple-touch-icon", kidMaskable, 180]]) {
   await sharp(Buffer.from(svg)).resize(size, size).png().toFile(`public/icons/${name}.png`);
 }
