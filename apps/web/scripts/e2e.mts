@@ -149,6 +149,77 @@ try {
   const locked = await call("/api/kid/unlock", token, { pin: "1234" });
   check("locked after 5 wrong tries", locked.status === 429, locked);
 
+
+  // parent app (Android): pair with a code made on the website, then manage kids and papers
+  const appCode = generatePairingCode();
+  await sql`insert into parent_devices (parent_id, pairing_code, pairing_expires_at) values (${parent.id}, ${appCode}, ${pairingExpiry(new Date()).toISOString()})`;
+  const [other] = await sql`insert into parents (auth_user_id) values (${"e2e-other-" + Date.now()}) returning id`;
+  try {
+    check("parent state needs a token", (await call("/api/parent/state", null)).status === 401);
+    check("a kid token is not a parent token", (await call("/api/parent/state", token)).status === 401);
+    check("parent pair rejects a wrong code", (await call("/api/parent/pair", null, { code: "ZZZZZZZZ" }, `${RUN_IP}-pp`)).status === 404);
+    const pp = await call("/api/parent/pair", null, { code: appCode, name: "E2E phone" }, `${RUN_IP}-pp`);
+    check("parent pair ok", pp.status === 200 && !!pp.json.token, pp);
+    check("parent code is single-use", (await call("/api/parent/pair", null, { code: appCode }, `${RUN_IP}-pp`)).status === 404);
+    const ptoken = pp.json.token;
+
+    let ps = await call("/api/parent/state", ptoken);
+    check("parent state lists the kid", ps.status === 200 && ps.json.kids.length === 1 && ps.json.kids[0].name === "E2E", ps);
+    const kidId = ps.json.kids[0].id;
+    check("kid starts with ai off", ps.json.kids[0].aiCheckEnabled === false);
+
+    const act = (id: string, body: unknown, tok = ptoken) => call(`/api/parent/kids/${id}`, tok, body);
+    const bonus = await act(kidId, { action: "bonus", minutes: 15 });
+    check("bonus adds minutes", bonus.status === 200 && bonus.json.balanceMinutes === 15 && bonus.json.changedMinutes === 15, bonus);
+    check("bonus rejects 0", (await act(kidId, { action: "bonus", minutes: 0 })).status === 400);
+    check("bonus rejects 1000", (await act(kidId, { action: "bonus", minutes: 1000 })).status === 400);
+    const wd = await act(kidId, { action: "withdraw", minutes: 5 });
+    check("withdraw takes minutes", wd.status === 200 && wd.json.balanceMinutes === 10 && wd.json.changedMinutes === 5, wd);
+    const reset = await act(kidId, { action: "reset" });
+    check("reset empties the bank", reset.json.balanceMinutes === 0 && reset.json.changedMinutes === 10, reset);
+    check("ai can be turned on", (await act(kidId, { action: "ai", enabled: true })).status === 200);
+    ps = await call("/api/parent/state", ptoken);
+    check("state shows ai on", ps.json.kids[0].aiCheckEnabled === true);
+    check("allow settings", (await act(kidId, { action: "allow_settings" })).status === 200);
+    ps = await call("/api/parent/state", ptoken);
+    check("state shows settings approved", ps.json.kids[0].approvedForSettings === true);
+    await act(kidId, { action: "block_settings" });
+    check("unknown action rejected", (await act(kidId, { action: "nope" })).status === 400);
+
+    // a pending paper: review it and approve two of the questions
+    const [sub] = await sql`insert into paper_submissions (kid_id, set_id, submitted_by, mode, ai_read) values (${kid.id}, ${set.id}, 'kid', 'parent', false) returning id`;
+    for (const qid of ids) await sql`insert into paper_answers (submission_id, question_id, legible, ai_correct) values (${sub.id}, ${qid}, false, false)`;
+    ps = await call("/api/parent/state", ptoken);
+    check("state lists the pending paper", ps.json.papers.some((p: any) => p.id === sub.id) && ps.json.kids[0].papersToReview >= 1, ps.json);
+    const paper = await call(`/api/parent/papers/${sub.id}`, ptoken);
+    check("paper has the questions with keys", paper.status === 200 && paper.json.answers.length === 4 && paper.json.answers[0].answerKey === "4", paper);
+    check("paper unknown to others is 404", (await call(`/api/parent/papers/${crypto.randomUUID()}`, ptoken)).status === 404);
+    check("paper needs a token", (await call(`/api/parent/papers/${sub.id}`, null)).status === 401);
+    check("paper photo is 404 when none stored", (await call(`/api/parent/papers/${sub.id}/image/0`, ptoken)).status === 404);
+    const tick = paper.json.answers.filter((a: any) => !a.alreadySolved).slice(0, 2).map((a: any) => a.questionId);
+    check("some questions are still unsolved", tick.length > 0, paper.json.answers);
+    const before = (await call("/api/parent/state", ptoken)).json.kids[0].balanceMinutes;
+    const approved = await call(`/api/parent/papers/${sub.id}`, ptoken, { decision: "approve", correct: tick });
+    check("approve pays for the ticked answers", approved.status === 200 && approved.json.correctCount === tick.length && approved.json.awardedMinutes >= 0, approved);
+    const after = (await call("/api/parent/state", ptoken)).json.kids[0].balanceMinutes;
+    check("balance grew by the award", after - before === approved.json.awardedMinutes, { before, after });
+    check("approving twice is refused", (await call(`/api/parent/papers/${sub.id}`, ptoken, { decision: "approve", correct: ids })).status === 409);
+    check("rejecting a decided paper is refused", (await call(`/api/parent/papers/${sub.id}`, ptoken, { decision: "reject" })).status === 409);
+
+    // a second parent's token must see nothing of this family
+    const otherToken = "e2e-other-token-" + Date.now();
+    const { hashToken } = await import("../src/lib/pairing.ts");
+    await sql`insert into parent_devices (parent_id, token_hash) values (${other.id}, ${hashToken(otherToken)})`;
+    const os = await call("/api/parent/state", otherToken);
+    check("another parent sees no kids", os.status === 200 && os.json.kids.length === 0, os);
+    check("another parent cannot act on the kid", (await call(`/api/parent/kids/${kidId}`, otherToken, { action: "bonus", minutes: 5 })).status === 404);
+    check("another parent cannot read the paper", (await call(`/api/parent/papers/${sub.id}`, otherToken)).status === 404);
+    check("another parent cannot decide the paper", (await call(`/api/parent/papers/${sub.id}`, otherToken, { decision: "reject" })).status === 404);
+  } finally {
+    await sql`delete from parents where id = ${other.id}`;
+    await sql`delete from rate_limits where key like ${"parent-pair:" + RUN_IP + "%"}`;
+  }
+
   // rate limit: 10 pairing attempts per IP per 15 minutes. On a deployed server the platform sets the
   // real client IP (a spoofed header is ignored), so the exact count and per-IP isolation are only
   // checked locally; remotely we only require that the limit kicks in.

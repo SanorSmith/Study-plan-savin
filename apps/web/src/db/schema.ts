@@ -207,3 +207,18 @@ export const paperImages = pgTable(
   },
   (t) => [uniqueIndex("paper_images_one_per_position").on(t.submissionId, t.position)],
 );
+
+/** A phone running the Study Plan parent app. Paired with a short code made on the website, then holds a token. */
+export const parentDevices = pgTable("parent_devices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  parentId: uuid("parent_id")
+    .notNull()
+    .references(() => parents.id, { onDelete: "cascade" }),
+  name: text("name"),
+  pairingCode: text("pairing_code").unique(),
+  pairingExpiresAt: timestamp("pairing_expires_at"),
+  // sha256 of the token; the raw token is shown to the phone once.
+  tokenHash: text("token_hash").unique(),
+  lastSeenAt: timestamp("last_seen_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

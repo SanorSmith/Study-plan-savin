@@ -7,6 +7,7 @@ import { getDb } from "@/db";
 import { parents } from "@/db/schema";
 import { requireParent } from "@/lib/auth";
 import { neonAuth } from "@/lib/neon-auth";
+import { createParentAppCode, revokeParentApp } from "@/lib/parent-device";
 import { hashPin } from "@/lib/pin";
 
 const ParentPin = z.string().regex(/^\d{6}$/, "The parent PIN must be 6 digits");
@@ -42,4 +43,18 @@ export async function changePassword(_prev: PasswordState, form: FormData): Prom
   });
   if (error) return { error: "The current password is wrong" };
   return { ok: true };
+}
+
+export type AppCodeState = { code?: string } | null;
+
+/** Makes a one-time code to type into the parent app. It is shown once and works for 15 minutes. */
+export async function newParentAppCode(): Promise<AppCodeState> {
+  const parent = await requireParent();
+  return { code: await createParentAppCode(parent.id) };
+}
+
+export async function removeParentPhone(deviceId: string) {
+  const parent = await requireParent();
+  await revokeParentApp(parent.id, z.uuid().parse(deviceId));
+  revalidatePath("/dashboard");
 }

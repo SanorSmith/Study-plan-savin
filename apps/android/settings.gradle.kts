@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "StudyPlanKid"
-include(":app")
+include(":app", ":parent")
