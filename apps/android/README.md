@@ -4,6 +4,18 @@ Native Kotlin and Jetpack Compose app. The kid pairs the phone with a code from 
 and answers homework questions to earn minutes. Minutes are then used automatically while the screen is on
 and another app is open. A parent can set locked and free time windows.
 
+## Fits the age
+
+The look follows the kid's grade (or the style a parent chose on the dashboard), in `AgeBand.kt`, `Look.kt` and `Components.kt`:
+
+| Band | Grades | Look |
+| --- | --- | --- |
+| Young | 1 to 3 | Big, bright and playful. Simple words with emoji, a color for each answer, a number pad for numeric answers, stars for progress, and a celebration on a right answer |
+| Middle | 4 to 6 | Calm indigo, a progress bar, the normal keyboard, a small celebration |
+| Teen | 7 to 12 | Clean and compact, no emoji, follows the phone's dark mode |
+
+Every age types the PIN on an on-screen pad. The lock cover and lock screen use the same colors and words. The server sends the grade and the parent's choice with the state (`grade`, `uiStyle`, `progress`).
+
 ## Homework on paper
 
 When a kid has homework with unanswered questions, the home screen shows **Did it on paper?**. The kid takes up to 3 photos

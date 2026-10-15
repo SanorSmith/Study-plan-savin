@@ -33,6 +33,15 @@ object Store {
         e.apply()
     }
 
+    // --- the look of the app ----------------------------------------------------------------------
+
+    /** The age band of the last state, so the lock cover and the first screens look right before anything loads. */
+    fun band(c: Context): AgeBand = AgeBand.fromKey(prefs(c).getString("band", null))
+
+    fun setBand(c: Context, band: AgeBand) {
+        prefs(c).edit().putString("band", band.key).apply()
+    }
+
     // --- server clock: the phone's wall clock is not trusted -------------------------------------
 
     /** Server time, carried forward with the monotonic clock so changing the phone's date has no effect. */
