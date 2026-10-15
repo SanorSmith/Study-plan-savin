@@ -1,3 +1,4 @@
+import { InstallApp } from "@/components/InstallApp";
 import { Suspense } from "react";
 import Link from "next/link";
 import { eq, inArray, sql } from "drizzle-orm";
@@ -118,6 +119,8 @@ async function KidList() {
           })}
         </ul>
       )}
+
+      <InstallApp />
 
       <Card className="mt-8 max-w-xl">
         <CardHeader

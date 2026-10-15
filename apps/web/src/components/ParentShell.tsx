@@ -7,7 +7,7 @@ import { btn } from "@/components/ui";
 export function ParentShell({ children, width = "max-w-5xl" }: { children: ReactNode; width?: string }) {
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href="/dashboard" className="text-base font-semibold tracking-tight text-slate-900">
             Study Plan
@@ -22,7 +22,7 @@ export function ParentShell({ children, width = "max-w-5xl" }: { children: React
           </nav>
         </div>
       </header>
-      <main className={`mx-auto w-full ${width} px-4 py-6 sm:px-6`}>{children}</main>
+      <main className={`mx-auto w-full ${width} px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6`}>{children}</main>
     </div>
   );
 }
