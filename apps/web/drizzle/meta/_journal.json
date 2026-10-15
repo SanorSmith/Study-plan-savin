@@ -71,6 +71,13 @@
       "when": 1792083010150,
       "tag": "0009_clumsy_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792085686625,
+      "tag": "0010_demonic_puff_adder",
+      "breakpoints": true
     }
   ]
 }

@@ -1,13 +1,14 @@
 import { InstallApp } from "@/components/InstallApp";
 import { Suspense } from "react";
 import Link from "next/link";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { attempts, creditLedger, devices, kids } from "@/db/schema";
+import { attempts, creditLedger, devices, kids, parentDevices } from "@/db/schema";
 import { Avatar, Badge, btn, Card, CardHeader, field, PageHeader } from "@/components/ui";
 import { PageLoading, ParentShell } from "@/components/ParentShell";
 import { requireParent } from "@/lib/auth";
 import { pendingCounts } from "@/lib/paper-service";
+import { ParentAppCard } from "./ParentAppCard";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { setParentPin } from "./actions";
 
@@ -16,6 +17,10 @@ async function KidList() {
   const db = getDb();
   const list = await db.select().from(kids).where(eq(kids.parentId, parent.id));
   const ids = list.map((k) => k.id);
+  const parentPhones = await db
+    .select({ id: parentDevices.id, name: parentDevices.name, lastSeenAt: parentDevices.lastSeenAt })
+    .from(parentDevices)
+    .where(and(eq(parentDevices.parentId, parent.id), isNotNull(parentDevices.tokenHash)));
   const [balances, tries, phones] = ids.length
     ? await Promise.all([
         db
@@ -147,6 +152,8 @@ async function KidList() {
           <button className={btn.secondary}>{parent.approvalPinHash ? "Change PIN" : "Set PIN"}</button>
         </form>
       </Card>
+
+      <ParentAppCard phones={parentPhones} />
 
       <Card className="mt-6 max-w-xl">
         <CardHeader
