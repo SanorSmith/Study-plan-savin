@@ -10,10 +10,19 @@ import androidx.lifecycle.viewModelScope
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 enum class Screen { Loading, Pair, Pin, Home }
+
+enum class Tone { Good, Info, Bad }
+
+/** What to tell the kid about the last answer, in the words of their age band. */
+data class Feedback(val text: String, val tone: Tone)
+
+/** The pop-up burst shown for a short moment after a right answer. */
+data class Celebration(val emoji: String, val text: String)
 
 class StudyViewModel(app: Application) : AndroidViewModel(app) {
     var screen by mutableStateOf(Screen.Loading)
@@ -23,6 +32,12 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     var message by mutableStateOf<String?>(null)
         private set
     var busy by mutableStateOf(false)
+        private set
+    var band by mutableStateOf(Store.band(app))
+        private set
+    var feedback by mutableStateOf<Feedback?>(null)
+        private set
+    var celebration by mutableStateOf<Celebration?>(null)
         private set
 
     private val ctx get() = getApplication<Application>()
@@ -46,6 +61,8 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         val s = Api.state(t)
         UsageSync.apply(ctx, s.balanceMinutes, s.serverNow, s.schedule, s.approvedUntil)
         state = s
+        band = ageBand(s.grade, s.uiStyle)
+        Store.setBand(ctx, band)
         screen = Screen.Home
     }
 
@@ -101,13 +118,22 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     fun answer(question: Question, value: String) = run {
         val t = token ?: return@run
         val r = Api.answer(t, question.id, value)
-        message = when {
-            r.correct && r.earnedMinutes > 0 -> "Correct! +${r.earnedMinutes} minutes"
-            r.correct -> "Correct! (daily limit reached, no more minutes today)"
-            r.attemptsLeft > 0 -> "Not quite. Try again (${r.attemptsLeft} ${if (r.attemptsLeft == 1) "try" else "tries"} left)"
-            else -> "Not quite. No minutes for this one."
+        val copy = Copies.of(band)
+        val fb = when {
+            r.correct && r.earnedMinutes > 0 -> Feedback(copy.correct(r.earnedMinutes), Tone.Good)
+            r.correct -> Feedback(copy.correctNoMinutes, Tone.Info)
+            r.attemptsLeft > 0 -> Feedback(copy.tryAgain(r.attemptsLeft), Tone.Bad)
+            else -> Feedback(copy.wrongFinal, Tone.Bad)
         }
+        feedback = fb
+        celebration = if (r.correct && copy.celebrateEmoji.isNotEmpty()) Celebration(copy.celebrateEmoji, fb.text) else null
         loadState(t)
+        if (celebration != null) {
+            viewModelScope.launch {
+                delay(1_700)
+                celebration = null
+            }
+        }
     }
 
     /** Sends photos of the finished paper. With mode "ai" the minutes are added at once; with "parent" a parent checks it. */

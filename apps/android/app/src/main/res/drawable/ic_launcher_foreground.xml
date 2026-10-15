@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- A notebook page -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,28h40a4,4 0 0 1 4,4v44a4,4 0 0 1 -4,4h-40a4,4 0 0 1 -4,-4v-44a4,4 0 0 1 4,-4z" />
+    <path android:fillColor="#6C4CF1" android:pathData="M38,38h32v4h-32z" />
+    <path android:fillColor="#6C4CF1" android:pathData="M38,50h32v4h-32z" />
+    <path android:fillColor="#6C4CF1" android:pathData="M38,62h18v4h-18z" />
+    <!-- A done badge -->
+    <path android:fillColor="#FFB703" android:pathData="M72,58a14,14 0 1 0 0.01,0z" />
+    <path
+        android:pathData="M65,72l5,5l9,-10"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

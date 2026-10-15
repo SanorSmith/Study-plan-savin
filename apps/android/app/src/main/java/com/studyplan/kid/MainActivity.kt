@@ -1,7 +1,6 @@
 package com.studyplan.kid
 
 import android.Manifest
-import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -9,21 +8,22 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,14 +32,14 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import kotlinx.coroutines.delay
 
@@ -49,8 +49,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
-                Surface(Modifier.fillMaxSize()) { StudyApp(vm) }
+            StudyTheme(vm.band) {
+                PageBackground { StudyApp(vm) }
             }
         }
     }
@@ -75,103 +75,115 @@ fun StudyApp(vm: StudyViewModel) {
         onPauseOrDispose { }
     }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        if (!permissionsReady) SetupCard()
-        when (vm.screen) {
-            Screen.Loading -> Text("Loading…")
-            Screen.Pair -> CodeEntry(
-                title = "Connect this phone",
-                label = "Pairing code from your parent",
-                secret = false,
-                busy = vm.busy,
-                onSubmit = vm::pair,
-            )
-            Screen.Pin -> CodeEntry(
-                title = "Hi!",
-                label = "Your PIN",
-                secret = true,
-                busy = vm.busy,
-                onSubmit = vm::unlock,
-            )
-            Screen.Home -> vm.state?.let { Home(vm, it) } ?: Text("Loading…")
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            if (!permissionsReady) SetupCard()
+            when (vm.screen) {
+                Screen.Loading -> Text("…", style = MaterialTheme.typography.headlineMedium)
+                Screen.Pair -> PairScreen(vm)
+                Screen.Pin -> PinScreen(vm)
+                Screen.Home -> vm.state?.let { HomeScreen(vm, it) } ?: Text("…")
+            }
+            vm.message?.let {
+                Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
         }
-        vm.message?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontSize = 16.sp) }
+        vm.celebration?.let { CelebrationOverlay(it.emoji, it.text) }
     }
 }
 
 @Composable
-private fun CodeEntry(title: String, label: String, secret: Boolean, busy: Boolean, onSubmit: (String) -> Unit) {
-    var value by remember { mutableStateOf("") }
-    Text(title, fontSize = 28.sp)
-    OutlinedTextField(
-        value = value,
-        onValueChange = { value = if (secret) it.filter(Char::isDigit).take(4) else it.take(16) },
-        label = { Text(label) },
-        singleLine = true,
-        visualTransformation = if (secret) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(keyboardType = if (secret) KeyboardType.NumberPassword else KeyboardType.Ascii),
-        modifier = Modifier.fillMaxWidth(),
-    )
-    Button(onClick = { onSubmit(value) }, enabled = !busy && value.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-        Text("Go")
+private fun PairScreen(vm: StudyViewModel) {
+    val copy = Copies.of(vm.band)
+    var code by remember { mutableStateOf("") }
+    LookCard {
+        Text(copy.pairTitle, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+        Text(copy.pairHint, style = MaterialTheme.typography.bodyLarge)
+        OutlinedTextField(
+            value = code,
+            onValueChange = { code = it.uppercase().take(16) },
+            label = { Text("Pairing code") },
+            singleLine = true,
+            textStyle = MaterialTheme.typography.headlineSmall.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.Bold),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Button(onClick = { vm.pair(code) }, enabled = !vm.busy && code.isNotBlank(), modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            Text("Go", style = MaterialTheme.typography.titleLarge)
+        }
+    }
+}
+
+/** The PIN is typed on an on-screen pad for every age: it is quicker and never opens the keyboard. */
+@Composable
+private fun PinScreen(vm: StudyViewModel) {
+    val copy = Copies.of(vm.band)
+    var pin by remember { mutableStateOf("") }
+    LaunchedEffect(vm.message) { if (vm.message != null) pin = "" } // a wrong PIN starts again
+    LookCard {
+        Text(
+            copy.pinTitle,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        PinDots(length = 4, filled = pin.length)
+        Keypad(
+            enabled = !vm.busy,
+            allowDecimal = false,
+            onKey = { key ->
+                pin = applyKey(pin, key, 4, false)
+                if (pin.length == 4) vm.unlock(pin)
+            },
+        )
     }
 }
 
 @Composable
-private fun Home(vm: StudyViewModel, s: KidState) {
-    val context = LocalContext.current
+private fun HomeScreen(vm: StudyViewModel, s: KidState) {
+    val copy = Copies.of(vm.band)
+    Text(copy.hi(s.name), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
 
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(s.name, fontSize = 28.sp)
-    }
+    TimeCard(copy)
 
-    TimeCard()
+    if (vm.celebration == null) vm.feedback?.let { FeedbackBox(it) }
 
     val q = s.question
     if (q == null) {
-        Text("No homework waiting. Ask a parent to add some.")
+        LookCard {
+            Text(
+                if (vm.feedback != null) copy.allDone else copy.noHomework,
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     } else {
-        QuestionCard(vm, s, q)
+        QuestionCard(vm, s, q, copy)
     }
 
     if (s.paperSets.isNotEmpty()) PaperCard(vm, s.paperSets, s.aiCheckEnabled)
 }
 
 @Composable
-private fun QuestionCard(vm: StudyViewModel, s: KidState, q: Question) {
-    var answer by remember(q.id) { mutableStateOf("") }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("${q.subject} · worth up to ${minOf(s.minutesPerQuestion, s.earnableTodayMinutes)} min", fontSize = 14.sp)
-            Text(q.text, fontSize = 20.sp)
-            if (q.type == "multiple_choice" && q.options != null) {
-                q.options.forEach { option ->
-                    OutlinedButton(onClick = { vm.answer(q, option) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
-                        Text(option)
-                    }
-                }
-            } else {
-                OutlinedTextField(
-                    value = answer,
-                    onValueChange = { answer = it.take(50) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Button(onClick = { vm.answer(q, answer.trim()) }, enabled = !vm.busy && answer.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                    Text("Answer")
-                }
-            }
-        }
+private fun FeedbackBox(feedback: Feedback) {
+    val (container, content) = when (feedback.tone) {
+        Tone.Good -> Color(0xFFD1FAE5) to Color(0xFF065F46)
+        Tone.Bad -> Color(0xFFFFE4E6) to Color(0xFF9F1239)
+        Tone.Info -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurface
+    }
+    Box(Modifier.fillMaxWidth().background(container, RoundedCornerShape(LocalLook.current.corner * 0.75f)).padding(16.dp)) {
+        Text(feedback.text, color = content, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 }
 
-/** Live time left, and what the phone is doing right now (locked, free time, or counting down). */
+/** The time left as a ring, with what the phone is doing right now (locked, free time, or counting down). */
 @Composable
-private fun TimeCard() {
+private fun TimeCard(copy: Copy) {
     val context = LocalContext.current
     var remaining by remember { mutableLongStateOf(Store.remainingSec(context)) }
     var window by remember { mutableStateOf(activeWindow(Store.schedule(context), Store.nowMs(context))) }
@@ -182,18 +194,75 @@ private fun TimeCard() {
             delay(1_000)
         }
     }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Screen time left")
-            Text("%d:%02d".format(remaining / 60, remaining % 60), fontSize = 44.sp, fontFamily = FontFamily.Monospace)
-            Text(
-                when (window?.mode) {
-                    Mode.Blocked -> "The phone is locked until ${formatMinute(window!!.endMinute)}."
-                    Mode.Free -> "Free time until ${formatMinute(window!!.endMinute)}. No minutes are used."
-                    null -> "Just open any app. Your minutes are used automatically while the screen is on."
-                },
-                fontSize = 14.sp,
-            )
+    val look = LocalLook.current
+    LookCard {
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(copy.bank, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            TimeGauge(minutes = ((remaining + 59) / 60).toInt(), unit = copy.minutes, showEmoji = look.band == AgeBand.Little)
+            when (window?.mode) {
+                Mode.Blocked -> StatusPill(copy.locked(formatMinute(window!!.endMinute)), Color(0xFFFFE4E6), Color(0xFF9F1239))
+                Mode.Free -> StatusPill(copy.free(formatMinute(window!!.endMinute)), Color(0xFFD1FAE5), Color(0xFF065F46))
+                null -> Unit
+            }
+            Text(copy.automatic, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+        }
+    }
+}
+
+@Composable
+private fun StatusPill(text: String, container: Color, content: Color) {
+    Box(Modifier.fillMaxWidth().background(container, RoundedCornerShape(16.dp)).padding(12.dp)) {
+        Text(text, color = content, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun QuestionCard(vm: StudyViewModel, s: KidState, q: Question, copy: Copy) {
+    val look = LocalLook.current
+    var answer by remember(q.id) { mutableStateOf("") }
+    LookCard {
+        s.progress?.let { HomeworkProgress(it.done, it.total) }
+        Text(
+            "${q.subject} · ${copy.yourTurn} · up to ${minOf(s.minutesPerQuestion, s.earnableTodayMinutes)} ${copy.minutes}",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(q.text, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+
+        when {
+            q.type == "multiple_choice" && q.options != null -> AnswerOptions(q.options, enabled = !vm.busy) { vm.answer(q, it) }
+
+            look.bigKeypad && q.type == "numeric" -> {
+                Box(
+                    Modifier.fillMaxWidth().height(72.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(look.corner * 0.7f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        answer.ifEmpty { "?" },
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Black,
+                        color = if (answer.isEmpty()) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                Keypad(enabled = !vm.busy, allowDecimal = true, onKey = { answer = applyKey(answer, it, 8, true) })
+                Button(onClick = { vm.answer(q, answer) }, enabled = !vm.busy && answer.isNotBlank(), modifier = Modifier.fillMaxWidth().height(64.dp)) {
+                    Text(copy.answer, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                }
+            }
+
+            else -> {
+                OutlinedTextField(
+                    value = answer,
+                    onValueChange = { answer = it.take(50) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = if (q.type == "numeric") KeyboardType.Decimal else KeyboardType.Text),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Button(onClick = { vm.answer(q, answer.trim()) }, enabled = !vm.busy && answer.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                    Text(copy.answer, style = MaterialTheme.typography.titleMedium)
+                }
+            }
         }
     }
 }
@@ -204,22 +273,23 @@ private fun SetupCard() {
     val context = LocalContext.current
     val usage = Permissions.hasUsageAccess(context)
     val overlay = Permissions.canOverlay(context)
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Parent setup", fontSize = 20.sp)
-            Text("The screen lock needs two permissions. A parent grants them once in Settings. Settings is parents-only after pairing, so do this first.")
-            if (!usage) {
-                Text("1. Usage access lets the app see which app is open. It never sees what is on screen.", fontSize = 14.sp)
-                OutlinedButton(onClick = { context.startActivity(Permissions.usageAccessIntent()) }) { Text("Allow usage access") }
-            } else {
-                Text("Usage access: on", fontSize = 14.sp)
-            }
-            if (!overlay) {
-                Text("2. Display over other apps lets the lock screen cover a blocked app.", fontSize = 14.sp)
-                OutlinedButton(onClick = { context.startActivity(Permissions.overlayIntent(context)) }) { Text("Allow display over other apps") }
-            } else {
-                Text("Display over other apps: on", fontSize = 14.sp)
-            }
+    LookCard {
+        Text("Parent setup", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(
+            "The screen lock needs two permissions. A parent grants them once in Settings. Settings is parents-only after pairing, so do this first.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        if (!usage) {
+            Text("1. Usage access lets the app see which app is open. It never sees what is on screen.", style = MaterialTheme.typography.bodyMedium)
+            OutlinedButton(onClick = { context.startActivity(Permissions.usageAccessIntent()) }) { Text("Allow usage access") }
+        } else {
+            Text("✓ Usage access is on", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+        }
+        if (!overlay) {
+            Text("2. Display over other apps lets the lock screen cover a blocked app.", style = MaterialTheme.typography.bodyMedium)
+            OutlinedButton(onClick = { context.startActivity(Permissions.overlayIntent(context)) }) { Text("Allow display over other apps") }
+        } else {
+            Text("✓ Display over other apps is on", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
         }
     }
 }

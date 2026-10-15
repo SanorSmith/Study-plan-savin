@@ -6,12 +6,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,12 +21,47 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import java.io.File
 
 private const val MAX_PAGES = 3
+
+private class PaperWords(val title: String, val intro: (Boolean) -> String, val ai: String, val parent: String, val toParent: String, val takePhoto: String, val gallery: String, val which: String)
+
+private fun paperWords(band: AgeBand) = when (band) {
+    AgeBand.Little -> PaperWords(
+        title = "Did it on paper? 📝",
+        intro = { ai -> if (ai) "Take a picture of your paper! Pick who checks it." else "Take a picture of your paper. A grown-up will check it." },
+        ai = "Check with the computer 🤖",
+        parent = "Check with a grown-up 👪",
+        toParent = "Send to a grown-up 👪",
+        takePhoto = "📷 Take a picture",
+        gallery = "🖼️ From gallery",
+        which = "Which homework?",
+    )
+    AgeBand.Middle -> PaperWords(
+        title = "Did it on paper?",
+        intro = { ai -> if (ai) "Take a photo of your finished paper, then choose who checks it." else "Take a photo of your finished paper. A parent checks it." },
+        ai = "Check with AI",
+        parent = "Check with parent",
+        toParent = "Send to my parent",
+        takePhoto = "Take a photo",
+        gallery = "From gallery",
+        which = "Which homework?",
+    )
+    AgeBand.Teen -> PaperWords(
+        title = "Homework on paper",
+        intro = { ai -> if (ai) "Photograph your paper. The AI can check it now, or a parent can." else "Photograph your paper. A parent checks it." },
+        ai = "Check with AI",
+        parent = "Check with parent",
+        toParent = "Send to parent",
+        takePhoto = "Take a photo",
+        gallery = "From gallery",
+        which = "Homework",
+    )
+}
 
 private fun newPhotoUri(context: Context): Uri {
     val dir = File(context.cacheDir, "paper").apply { mkdirs() }
@@ -35,10 +69,11 @@ private fun newPhotoUri(context: Context): Uri {
     return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
 }
 
-/** Did the homework on paper? Photograph it (up to 3 pages). A parent checks it and the minutes arrive after. */
+/** Did the homework on paper? Photograph it (up to 3 pages), then choose who checks it: the AI (minutes at once) or a parent. */
 @Composable
 fun PaperCard(vm: StudyViewModel, sets: List<PaperSet>, aiCheckEnabled: Boolean) {
     val context = LocalContext.current
+    val words = paperWords(vm.band)
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var pages by rememberSaveable { mutableStateOf(listOf<String>()) } // photo addresses, kept across the camera app
     var pending by rememberSaveable { mutableStateOf<String?>(null) } // the photo the camera is writing
@@ -53,67 +88,57 @@ fun PaperCard(vm: StudyViewModel, sets: List<PaperSet>, aiCheckEnabled: Boolean)
     }
 
     val set = sets[selected.coerceIn(0, sets.lastIndex)]
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Did it on paper?", fontSize = 20.sp)
-            Text(
-                if (aiCheckEnabled) "Take a photo of your finished paper, then choose who checks it. The AI adds your minutes straight away, or a parent checks it."
-                else "Take a photo of your finished paper. A parent checks it, and your minutes arrive after.",
-                fontSize = 14.sp,
-            )
+    LookCard {
+        Text(words.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(words.intro(aiCheckEnabled), style = MaterialTheme.typography.bodyMedium)
 
-            if (sets.size > 1) {
-                Text("Which homework?", fontSize = 14.sp)
-                sets.forEachIndexed { index, s ->
-                    if (s.id == set.id) Button(onClick = { selected = index }, modifier = Modifier.fillMaxWidth()) { Text(s.subject) }
-                    else OutlinedButton(onClick = { selected = index }, modifier = Modifier.fillMaxWidth()) { Text(s.subject) }
+        if (sets.size > 1) {
+            Text(words.which, style = MaterialTheme.typography.labelLarge)
+            sets.forEachIndexed { index, s ->
+                if (s.id == set.id) Button(onClick = { selected = index }, modifier = Modifier.fillMaxWidth()) { Text(s.subject) }
+                else OutlinedButton(onClick = { selected = index }, modifier = Modifier.fillMaxWidth()) { Text(s.subject) }
+            }
+        } else {
+            Text(set.subject, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Button(
+                enabled = pages.size < MAX_PAGES && !vm.busy,
+                modifier = Modifier.weight(1f).height(52.dp),
+                onClick = {
+                    val uri = newPhotoUri(context)
+                    pending = uri.toString()
+                    Store.allowCameraFor(context) // the camera is a blocked app; let it open for a few minutes
+                    takePhoto.launch(uri)
+                },
+            ) { Text(words.takePhoto) }
+            OutlinedButton(
+                enabled = pages.size < MAX_PAGES && !vm.busy,
+                modifier = Modifier.weight(1f).height(52.dp),
+                onClick = {
+                    Store.allowCameraFor(context)
+                    choosePhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                },
+            ) { Text(words.gallery) }
+        }
+
+        if (pages.isNotEmpty()) {
+            Text("${pages.size} of $MAX_PAGES photos ready", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            val uris = pages.map(Uri::parse)
+            if (aiCheckEnabled) {
+                Button(enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(56.dp), onClick = { vm.sendPaper(set.id, uris, "ai") { pages = emptyList() } }) {
+                    Text(if (vm.busy) "…" else words.ai, style = MaterialTheme.typography.titleMedium)
+                }
+                OutlinedButton(enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(52.dp), onClick = { vm.sendPaper(set.id, uris, "parent") { pages = emptyList() } }) {
+                    Text(words.parent)
                 }
             } else {
-                Text(set.subject, fontSize = 14.sp)
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    enabled = pages.size < MAX_PAGES && !vm.busy,
-                    onClick = {
-                        val uri = newPhotoUri(context)
-                        pending = uri.toString()
-                        Store.allowCameraFor(context) // the camera is a blocked app; let it open for a few minutes
-                        takePhoto.launch(uri)
-                    },
-                ) { Text("Take a photo") }
-                OutlinedButton(
-                    enabled = pages.size < MAX_PAGES && !vm.busy,
-                    onClick = {
-                        Store.allowCameraFor(context)
-                        choosePhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    },
-                ) { Text("From gallery") }
-            }
-
-            if (pages.isNotEmpty()) {
-                Text("${pages.size} of $MAX_PAGES photos ready", fontSize = 14.sp)
-                val uris = pages.map(Uri::parse)
-                if (aiCheckEnabled) {
-                    Button(
-                        enabled = !vm.busy,
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { vm.sendPaper(set.id, uris, "ai") { pages = emptyList() } },
-                    ) { Text(if (vm.busy) "Checking…" else "Check with AI") }
-                    OutlinedButton(
-                        enabled = !vm.busy,
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { vm.sendPaper(set.id, uris, "parent") { pages = emptyList() } },
-                    ) { Text("Check with parent") }
-                } else {
-                    Button(
-                        enabled = !vm.busy,
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { vm.sendPaper(set.id, uris, "parent") { pages = emptyList() } },
-                    ) { Text(if (vm.busy) "Sending…" else "Send to my parent") }
+                Button(enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(56.dp), onClick = { vm.sendPaper(set.id, uris, "parent") { pages = emptyList() } }) {
+                    Text(if (vm.busy) "…" else words.toParent, style = MaterialTheme.typography.titleMedium)
                 }
-                OutlinedButton(enabled = !vm.busy, onClick = { pages = pages.dropLast(1) }) { Text("Remove last") }
             }
+            OutlinedButton(enabled = !vm.busy, onClick = { pages = pages.dropLast(1) }) { Text("Remove last") }
         }
     }
 }

@@ -16,6 +16,8 @@ data class Question(
     val subject: String,
 )
 
+data class Progress(val done: Int, val total: Int)
+
 data class PaperSet(val id: String, val subject: String)
 
 data class KidState(
@@ -29,6 +31,9 @@ data class KidState(
     val approvedUntil: String?,
     val paperSets: List<PaperSet>,
     val aiCheckEnabled: Boolean,
+    val grade: Int,
+    val uiStyle: String,
+    val progress: Progress?,
 )
 
 data class SyncData(val balanceMinutes: Int, val serverNow: String, val schedule: Schedule, val approvedUntil: String?)
@@ -115,6 +120,9 @@ object Api {
                 List(a.length()) { i -> PaperSet(a.getJSONObject(i).getString("id"), a.getJSONObject(i).getString("subject")) }
             } ?: emptyList(),
             aiCheckEnabled = j.optBoolean("aiCheckEnabled", false),
+            grade = j.optInt("grade", 5),
+            uiStyle = j.optString("uiStyle", "auto"),
+            progress = j.optJSONObject("progress")?.let { Progress(it.getInt("done"), it.getInt("total")) },
         )
     }
 
