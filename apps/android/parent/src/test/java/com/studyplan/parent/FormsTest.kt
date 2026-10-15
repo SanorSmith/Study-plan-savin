@@ -85,4 +85,24 @@ class FormsTest {
         assertEquals("Locked 21:00 to 07:00, Mon to Fri", ruleLabel("blocked", 31, 1260, 420))
         assertEquals("Free 15:00 to 17:00, Sat and Sun", ruleLabel("free", 96, 900, 1020))
     }
+
+    @Test
+    fun optionsAreSplitCleanedAndLimited() {
+        assertEquals(listOf("a", "b", "c"), parseOptions(" a, b ,, c "))
+        assertEquals(listOf("a", "b"), parseOptions("a\nb\na"))
+        assertEquals(8, parseOptions("1,2,3,4,5,6,7,8,9,10").size)
+    }
+
+    @Test
+    fun aBlankQuestionIsNotValidUntilFilledIn() {
+        assertNotNull(validateDraft(blankDraft("numeric")))
+        assertNotNull(validateDraft(blankDraft("multiple_choice")))
+        assertNull(validateDraft(blankDraft("short_text").copy(text = "Capital of Sweden?", answerKey = "Stockholm")))
+    }
+
+    @Test
+    fun anEditedQuestionKeepsItsId() {
+        val d = QuestionDraft("2+2", "numeric", null, "4", true, "abc")
+        assertEquals("abc", d.copy(answerKey = "5").id)
+    }
 }

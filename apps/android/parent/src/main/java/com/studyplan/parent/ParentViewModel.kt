@@ -22,6 +22,7 @@ sealed interface Screen {
     data class EditKid(val id: String) : Screen
     data class Results(val id: String) : Screen
     data class NewHomework(val id: String) : Screen
+    data class EditHomework(val id: String, val setId: String) : Screen
 }
 
 class ParentViewModel(app: Application) : AndroidViewModel(app) {
@@ -127,6 +128,7 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
             is Screen.Kid -> s.id
             is Screen.Results -> s.id
             is Screen.EditKid -> s.id
+            is Screen.EditHomework -> s.id
             else -> return
         }
         kid = ParentApi.kid(t, id)
@@ -167,6 +169,7 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
 
     fun back() {
         when (val s = screen) {
+            is Screen.EditHomework -> openResults(s.id)
             is Screen.Results, is Screen.EditKid, is Screen.NewHomework -> {
                 val id = when (s) {
                     is Screen.Results -> s.id
@@ -178,6 +181,28 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
             }
             else -> goHome()
         }
+    }
+
+    fun openEditHomework(kidId: String, set: HomeworkInfo) {
+        clearMessages()
+        drafts = set.questions.map { QuestionDraft(it.text, it.type, it.options, it.answerKey, true, it.id) }
+        screen = Screen.EditHomework(kidId, set.id)
+    }
+
+    fun saveHomework(kidId: String, setId: String, subject: String) = run { t ->
+        ParentApi.updateHomework(t, kidId, setId, subject, drafts)
+        drafts = emptyList()
+        message = "Homework saved."
+        state = ParentApi.state(t)
+        screen = Screen.Results(kidId)
+        kid = ParentApi.kid(t, kidId)
+    }
+
+    fun deleteHomework(kidId: String, setId: String) = run { t ->
+        ParentApi.deleteHomework(t, kidId, setId)
+        message = "Homework removed. Minutes already earned stay in the bank."
+        state = ParentApi.state(t)
+        kid = ParentApi.kid(t, kidId)
     }
 
     fun createKid(profile: KidProfile, pin: String) = run { t ->

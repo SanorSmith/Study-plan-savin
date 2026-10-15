@@ -7,6 +7,7 @@ data class QuestionDraft(
     val options: List<String>?,
     val answerKey: String,
     val include: Boolean = true,
+    val id: String? = null, // set when the question already exists and is being edited
 )
 
 /** The same rules the server applies, so the parent sees the problem before sending. Null means fine. */
@@ -85,4 +86,16 @@ fun styleLabel(style: String): String = when (style) {
     "middle" -> "Middle (grades 4 to 6)"
     "teen" -> "Teen (grades 7 to 12)"
     else -> "Automatic from the grade"
+}
+
+/** Options typed as "a, b, c" (or one per line) to a clean list. */
+fun parseOptions(text: String): List<String> = text.split(',', '\n').map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(8)
+
+/** A blank question to fill in by hand. */
+fun blankDraft(type: String) = QuestionDraft("", type, if (type == "multiple_choice") emptyList() else null, "")
+
+fun typeLabel(type: String): String = when (type) {
+    "multiple_choice" -> "Choose one"
+    "numeric" -> "Number"
+    else -> "Short answer"
 }

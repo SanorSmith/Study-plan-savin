@@ -281,6 +281,16 @@ fun KidFormScreen(vm: ParentViewModel, kidId: String?) {
 @Composable
 fun ResultsScreen(vm: ParentViewModel, kidId: String) {
     val detail = vm.kid?.takeIf { it.id == kidId }
+    var removing by remember { mutableStateOf<HomeworkInfo?>(null) }
+    removing?.let { set ->
+        AlertDialog(
+            onDismissRequest = { removing = null },
+            title = { Text("Remove ${set.subject}?") },
+            text = { Text("The questions and the tries are deleted. Minutes ${detail?.name ?: "the kid"} already earned from it stay in the bank.") },
+            confirmButton = { TextButton(onClick = { removing = null; vm.deleteHomework(kidId, set.id) }) { Text("Remove") } },
+            dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancel") } },
+        )
+    }
     Page {
         TextButton(onClick = { vm.back() }) { Text("← ${detail?.name ?: "Back"}") }
         Text("Homework and results", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -292,6 +302,10 @@ fun ResultsScreen(vm: ParentViewModel, kidId: String) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("${s.subject}: ${s.solved} of ${s.total} solved", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text("Earned ${minutesLabel(s.earnedMinutes)}", style = MaterialTheme.typography.bodyMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(onClick = { vm.openEditHomework(kidId, s) }, enabled = !vm.busy, modifier = Modifier.weight(1f)) { Text("Edit") }
+                        OutlinedButton(onClick = { removing = s }, enabled = !vm.busy, modifier = Modifier.weight(1f)) { Text("Remove") }
+                    }
                     HorizontalDivider()
                     s.questions.forEachIndexed { i, q ->
                         Column {
@@ -348,9 +362,7 @@ fun NewHomeworkScreen(vm: ParentViewModel, kidId: String) {
         if (vm.busy) Text("Reading the worksheet… this can take up to a minute.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
         (problem ?: vm.error)?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge) }
 
-        vm.drafts.forEachIndexed { index, d ->
-            DraftCard(index, d) { updated -> vm.drafts = vm.drafts.toMutableList().also { it[index] = updated } }
-        }
+        if (vm.drafts.isNotEmpty()) DraftList(vm)
         if (vm.drafts.isNotEmpty()) {
             Button(
                 enabled = !vm.busy,
@@ -364,6 +376,43 @@ fun NewHomeworkScreen(vm: ParentViewModel, kidId: String) {
     }
 }
 
+@Composable
+fun EditHomeworkScreen(vm: ParentViewModel, kidId: String, setId: String) {
+    var subject by rememberSaveable(setId) { mutableStateOf(vm.kid?.homework?.firstOrNull { it.id == setId }?.subject ?: "") }
+    var problem by remember { mutableStateOf<String?>(null) }
+    Page {
+        TextButton(onClick = { vm.back() }) { Text("← Back") }
+        Text("Edit homework", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("Change a question or its answer, take a question out (untick it) or add one. Tries the kid already made stay with the questions you keep.", style = MaterialTheme.typography.bodyMedium)
+        OutlinedTextField(subject, { subject = it.take(60) }, label = { Text("Subject") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        (problem ?: vm.error)?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge) }
+        DraftList(vm)
+        Button(
+            enabled = !vm.busy,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            onClick = {
+                problem = validateHomework(subject, vm.drafts)
+                if (problem == null) vm.saveHomework(kidId, setId, subject)
+            },
+        ) { Text(if (vm.busy) "Saving…" else "Save changes") }
+    }
+}
+
+/** The editable questions plus a way to add one by hand. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DraftList(vm: ParentViewModel) {
+    vm.drafts.forEachIndexed { index, d ->
+        DraftCard(index, d) { updated -> vm.drafts = vm.drafts.toMutableList().also { it[index] = updated } }
+    }
+    Text("Add a question", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("numeric", "short_text", "multiple_choice").forEach { t ->
+            FilterChip(selected = false, onClick = { vm.drafts = vm.drafts + blankDraft(t) }, label = { Text(typeLabel(t)) })
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DraftCard(index: Int, d: QuestionDraft, onChange: (QuestionDraft) -> Unit) {
@@ -371,11 +420,18 @@ private fun DraftCard(index: Int, d: QuestionDraft, onChange: (QuestionDraft) ->
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = d.include, onCheckedChange = { onChange(d.copy(include = it)) })
-                Text("Question ${index + 1}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(if (d.include) "Question ${index + 1}" else "Question ${index + 1} (will be removed)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             }
             if (d.include) {
                 OutlinedTextField(d.text, { onChange(d.copy(text = it.take(1000))) }, label = { Text("Question") }, modifier = Modifier.fillMaxWidth())
                 if (d.type == "multiple_choice") {
+                    var optionsText by remember(d.id, index) { mutableStateOf(d.options.orEmpty().joinToString(", ")) }
+                    OutlinedTextField(
+                        optionsText,
+                        { optionsText = it; onChange(d.copy(options = parseOptions(it), answerKey = if (d.answerKey.trim() in parseOptions(it)) d.answerKey else "")) },
+                        label = { Text("Options, separated by commas") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     Text("Right answer:", style = MaterialTheme.typography.bodyMedium)
                     d.options.orEmpty().forEach { o ->
                         FilterChip(selected = d.answerKey.trim() == o.trim(), onClick = { onChange(d.copy(answerKey = o)) }, label = { Text(o) })
