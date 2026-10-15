@@ -9,6 +9,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -181,12 +187,13 @@ private fun FeedbackBox(feedback: Feedback) {
     }
 }
 
-/** The time left as a ring, with what the phone is doing right now (locked, free time, or counting down). */
+/** The time left as a ring on a bright card, with what the phone is doing right now. The explanation hides behind a ? button. */
 @Composable
 private fun TimeCard(copy: Copy) {
     val context = LocalContext.current
     var remaining by remember { mutableLongStateOf(Store.remainingSec(context)) }
     var window by remember { mutableStateOf(activeWindow(Store.schedule(context), Store.nowMs(context))) }
+    var showInfo by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         while (true) {
             remaining = Store.remainingSec(context)
@@ -195,24 +202,26 @@ private fun TimeCard(copy: Copy) {
         }
     }
     val look = LocalLook.current
-    LookCard {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(copy.bank, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            TimeGauge(minutes = ((remaining + 59) / 60).toInt(), unit = copy.minutes, showEmoji = look.band == AgeBand.Little)
-            when (window?.mode) {
-                Mode.Blocked -> StatusPill(copy.locked(formatMinute(window!!.endMinute)), Color(0xFFFFE4E6), Color(0xFF9F1239))
-                Mode.Free -> StatusPill(copy.free(formatMinute(window!!.endMinute)), Color(0xFFD1FAE5), Color(0xFF065F46))
-                null -> Unit
-            }
-            Text(copy.automatic, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+    HeroCard {
+        TimeGauge(minutes = ((remaining + 59) / 60).toInt(), unit = copy.minutes, showEmoji = look.band == AgeBand.Little)
+        when (window?.mode) {
+            Mode.Blocked -> StatusPill(copy.locked(formatMinute(window!!.endMinute)), Color.Black.copy(alpha = 0.25f), Color.White)
+            Mode.Free -> StatusPill(copy.free(formatMinute(window!!.endMinute)), Color.White.copy(alpha = 0.25f), Color.White)
+            null -> Unit
         }
+        Box(
+            Modifier.size(36.dp).background(Color.White.copy(alpha = 0.25f), CircleShape).clickable { showInfo = !showInfo }
+                .semantics { contentDescription = "What is this?" },
+            contentAlignment = Alignment.Center,
+        ) { Text(if (showInfo) "×" else "?", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
+        if (showInfo) Text(copy.info, color = Color.White, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
     }
 }
 
 @Composable
 private fun StatusPill(text: String, container: Color, content: Color) {
-    Box(Modifier.fillMaxWidth().background(container, RoundedCornerShape(16.dp)).padding(12.dp)) {
-        Text(text, color = content, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    Box(Modifier.fillMaxWidth().background(container, CircleShape).padding(horizontal = 16.dp, vertical = 10.dp)) {
+        Text(text, color = content, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -222,12 +231,10 @@ private fun QuestionCard(vm: StudyViewModel, s: KidState, q: Question, copy: Cop
     var answer by remember(q.id) { mutableStateOf("") }
     LookCard {
         s.progress?.let { HomeworkProgress(it.done, it.total) }
-        Text(
-            "${q.subject} · ${copy.yourTurn} · up to ${minOf(s.minutesPerQuestion, s.earnableTodayMinutes)} ${copy.minutes}",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold,
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoPill(q.subject)
+            InfoPill("+${minOf(s.minutesPerQuestion, s.earnableTodayMinutes)} ${copy.minutes}")
+        }
         Text(q.text, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
 
         when {

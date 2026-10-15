@@ -1,5 +1,6 @@
 "use client";
 
+import type { AgeBand } from "@/lib/age-band";
 import type { Look } from "./looks";
 
 /** A ring showing how many minutes are left (a full ring is an hour or more). */
@@ -26,14 +27,14 @@ export function TimeGauge({ minutes, look, unit, emoji }: { minutes: number; loo
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         {emoji && <span className="text-3xl">🕒</span>}
         <span className="text-5xl font-black tabular-nums leading-none">{minutes}</span>
-        <span className="text-sm font-semibold opacity-70">{unit}</span>
+        <span className="text-sm font-semibold opacity-80">{unit}</span>
       </div>
     </div>
   );
 }
 
 /** Stars for young kids, a bar for older ones. */
-export function Progress({ done, total, band, look }: { done: number; total: number; band: "little" | "middle" | "teen"; look: Look }) {
+export function Progress({ done, total, band, look }: { done: number; total: number; band: AgeBand; look: Look }) {
   if (total <= 0) return null;
   if (band === "little") {
     return (
@@ -44,14 +45,13 @@ export function Progress({ done, total, band, look }: { done: number; total: num
   }
   return (
     <div aria-label={`${done} of ${total} done`}>
-      <div className="mb-1 flex justify-between text-sm">
-        <span className={look.label}>Homework</span>
-        <span className="tabular-nums opacity-70">
-          {done} of {total}
+      <div className="flex items-center gap-3">
+        <div className="h-3 flex-1 overflow-hidden rounded-full bg-black/10">
+          <div className={`h-full rounded-full ${look.progressFill} transition-[width] duration-500`} style={{ width: `${(done / total) * 100}%` }} />
+        </div>
+        <span className="text-sm font-semibold tabular-nums opacity-70">
+          {done}/{total}
         </span>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-black/10">
-        <div className={`h-full rounded-full ${band === "middle" ? "bg-indigo-500" : "bg-slate-900 dark:bg-slate-100"} transition-[width] duration-500`} style={{ width: `${(done / total) * 100}%` }} />
       </div>
     </div>
   );
@@ -90,7 +90,7 @@ export function PinDots({ length, filled, look }: { length: number; filled: numb
   return (
     <div className="flex justify-center gap-4" role="img" aria-label={`${filled} of ${length} digits entered`}>
       {Array.from({ length }, (_, i) => (
-        <span key={i} className={`h-5 w-5 rounded-full border-2 ${i < filled ? `${look.gaugeStroke.replace("stroke-", "bg-")} border-transparent` : "border-current opacity-40"}`} />
+        <span key={i} className={`h-5 w-5 rounded-full border-2 ${i < filled ? `${look.dot} border-transparent` : "border-current opacity-40"}`} />
       ))}
     </div>
   );

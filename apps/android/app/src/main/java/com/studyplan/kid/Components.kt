@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -24,11 +25,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,19 +69,43 @@ fun LookCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(look.corner),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (look.band == AgeBand.Teen) 0.dp else 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
     ) {
         Column(Modifier.padding(if (look.band == AgeBand.Little) 22.dp else 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
+    }
+}
+
+/** The big colored card with the time ring: a bright gradient with white text. */
+@Composable
+fun HeroCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val look = LocalLook.current
+    Box(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(look.corner * 1.2f))
+            .background(Brush.linearGradient(look.hero))
+            .padding(20.dp),
+    ) {
+        CompositionLocalProvider(LocalContentColor provides Color.White) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) { content() }
+        }
+    }
+}
+
+/** A small rounded label, such as the subject. */
+@Composable
+fun InfoPill(text: String) {
+    Box(Modifier.background(MaterialTheme.colorScheme.primaryContainer, CircleShape).padding(horizontal = 14.dp, vertical = 6.dp)) {
+        Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
     }
 }
 
 /** A ring showing how many minutes are left (a full ring is an hour or more). */
 @Composable
 fun TimeGauge(minutes: Int, unit: String, showEmoji: Boolean) {
-    val colors = MaterialTheme.colorScheme
     val progress by animateFloatAsState((minutes / 60f).coerceIn(0f, 1f), animationSpec = tween(700), label = "gauge")
-    val track = colors.primaryContainer
-    val arc = colors.primary
+    val track = Color.White.copy(alpha = 0.3f)
+    val arc = Color.White
     Box(
         Modifier.size(176.dp).semantics { contentDescription = "$minutes $unit left" },
         contentAlignment = Alignment.Center,
@@ -92,8 +119,8 @@ fun TimeGauge(minutes: Int, unit: String, showEmoji: Boolean) {
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             if (showEmoji) Text("🕒", fontSize = 26.sp)
-            Text("$minutes", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Black)
-            Text(unit, style = MaterialTheme.typography.labelLarge, color = colors.onSurface.copy(alpha = 0.7f))
+            Text("$minutes", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Black, color = Color.White)
+            Text(unit, style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.85f))
         }
     }
 }
@@ -111,17 +138,14 @@ fun HomeworkProgress(done: Int, total: Int) {
             fontSize = 28.sp,
         )
     } else {
-        Column(Modifier.semantics { contentDescription = "$done of $total done" }) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Homework", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Text("$done of $total", style = MaterialTheme.typography.labelLarge)
-            }
-            Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth().semantics { contentDescription = "$done of $total done" }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             LinearProgressIndicator(
                 progress = { done.toFloat() / total },
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
+                modifier = Modifier.weight(1f).height(12.dp).clip(CircleShape),
+                color = look.hero[1],
                 trackColor = MaterialTheme.colorScheme.primaryContainer,
             )
+            Text("$done/$total", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -168,27 +192,27 @@ fun PinDots(length: Int, filled: Int) {
     }
 }
 
-/** The answer choices: a different bright color for each when the kid is young, plain outlined buttons otherwise. */
+/** The answer choices: each a different bright color. Teens get white buttons with a colored edge. */
 @Composable
 fun AnswerOptions(options: List<String>, enabled: Boolean, onPick: (String) -> Unit) {
     val look = LocalLook.current
-    Column(verticalArrangement = Arrangement.spacedBy(if (look.band == AgeBand.Little) 12.dp else 8.dp)) {
+    val teen = look.band == AgeBand.Teen
+    Column(verticalArrangement = Arrangement.spacedBy(if (look.band == AgeBand.Little) 12.dp else 10.dp)) {
         options.forEachIndexed { index, option ->
-            if (look.band == AgeBand.Little) {
-                val color = OptionColors[index % OptionColors.size]
-                Button(
-                    onClick = { onPick(option) },
-                    enabled = enabled,
-                    modifier = Modifier.fillMaxWidth().height(68.dp),
-                    shape = RoundedCornerShape(look.corner * 0.7f),
-                    colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = if (index % OptionColors.size == 3) Color(0xFF1F1B3A) else Color.White),
-                ) {
-                    Text(option, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, modifier = Modifier.fillMaxWidth())
-                }
-            } else {
-                OutlinedButton(onClick = { onPick(option) }, enabled = enabled, modifier = Modifier.fillMaxWidth().height(if (look.band == AgeBand.Middle) 52.dp else 48.dp)) {
-                    Text(option, style = MaterialTheme.typography.titleMedium, modifier = Modifier.fillMaxWidth())
-                }
+            val i = index % look.options.size
+            Button(
+                onClick = { onPick(option) },
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth().height(if (look.band == AgeBand.Little) 68.dp else 56.dp),
+                shape = RoundedCornerShape(look.corner * 0.7f),
+                border = if (teen) BorderStroke(2.dp, look.options[i]) else null,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (teen) Color.White else look.options[i],
+                    contentColor = if (teen) look.optionText[i] else look.optionText[i],
+                    disabledContainerColor = (if (teen) Color.White else look.options[i]).copy(alpha = 0.5f),
+                ),
+            ) {
+                Text(option, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, modifier = Modifier.fillMaxWidth())
             }
         }
     }

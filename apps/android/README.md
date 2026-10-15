@@ -10,15 +10,19 @@ and another app is open. A parent can set locked and free time windows.
 
 ## Fits the age
 
+Bright, colorful and with as little text as possible: the home screen is a big colored card with a time ring, one question card with the subject
+and the minutes it is worth as small labels, and big colored answer buttons. Explanations hide behind a **?** button, and "Did it on paper?" is one
+button that opens when tapped. There is no dark mode.
+
 The look follows the kid's grade (or the style a parent chose on the dashboard), in `AgeBand.kt`, `Look.kt` and `Components.kt`:
 
 | Band | Grades | Look |
 | --- | --- | --- |
-| Young | 1 to 3 | Big, bright and playful. Simple words with emoji, a color for each answer, a number pad for numeric answers, stars for progress, and a celebration on a right answer |
-| Middle | 4 to 6 | Calm indigo, a progress bar, the normal keyboard, a small celebration |
-| Teen | 7 to 12 | Clean and compact, no emoji, follows the phone's dark mode |
+| Young | 1 to 3 | Big, bright and playful. Emoji, a bold color for each answer, a number pad for numeric answers, stars for progress, and a celebration on a right answer |
+| Middle | 4 to 6 | Cyan and indigo, soft colored answer buttons, a progress bar, a small celebration |
+| Teen | 7 to 12 | Violet to orange gradient, no emoji, white answer buttons with a colored edge |
 
-Every age types the PIN on an on-screen pad. The lock cover and lock screen use the same colors and words. The server sends the grade and the parent's choice with the state (`grade`, `uiStyle`, `progress`).
+Every age types the PIN on an on-screen pad. The lock cover and lock screen use the same colors. The server sends the grade and the parent's choice with the state (`grade`, `uiStyle`, `progress`).
 
 ## Homework on paper
 
