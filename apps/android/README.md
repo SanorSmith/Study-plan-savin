@@ -96,9 +96,16 @@ it is the parent's remote control for the same account.
 
 - **Pair:** on the website dashboard, **Parent app for Android > New code**, then type the code in the app. The code works once for 15 minutes
   and is swapped for a token kept in app-private storage (`POST /api/parent/pair`). A phone can be removed on the dashboard.
-- **Check papers:** the photos, what was read from the paper, and the answer key. Tick what is right and approve (minutes are added), or send the paper back.
-- **Kids:** give bonus time, take minutes out, empty the bank, turn AI checking on or off, allow Settings on the kid's phone for 10 minutes.
+- **Check papers:** the photos (pinch to zoom), what was read from the paper and the answer key. Tick what is right and approve (minutes are added), or send the paper back.
+  **Ask the AI for suggestions** sends the stored photos to the AI only when tapped, and ticks what looks right.
+- **Kids:** add a kid, edit the profile (grade, minutes per answer, daily limit, look, PIN), give bonus time, take minutes out, empty the bank,
+  turn AI checking on or off, allow Settings on the kid's phone for 10 minutes.
+- **Homework:** photograph a worksheet, the AI suggests questions and answers, the parent edits the answers and assigns it. Every question, key and try is listed under results.
+- **Time windows:** add and remove locked and free times (days, from, to).
+- **Kid's phone:** make the pairing code for the kid's phone.
 - **Notifications:** WorkManager asks `GET /api/parent/state` about every 15 minutes (Android's minimum) and notifies when a new paper is waiting.
   It uses no Firebase, so there is no extra account. The delay can be up to about 15 minutes, and phones that restrict background work may delay it more.
+
+Still on the website only: the parent PIN for the kid's phone, the account password, and deleting a kid.
 
 Build: `./gradlew :parent:assembleDebug`. Tests: `./gradlew :parent:testDebugUnitTest`.
