@@ -101,6 +101,7 @@ it is the parent's remote control for the same account.
 - **Kids:** add a kid, edit the profile (grade, minutes per answer, daily limit, look, PIN), give bonus time, take minutes out, empty the bank,
   turn AI checking on or off, allow Settings on the kid's phone for 10 minutes.
 - **Homework:** photograph a worksheet, the AI suggests questions and answers, the parent edits the answers and assigns it. Every question, key and try is listed under results.
+  A set can be **edited** (change a question or answer, add or untick questions; tries on kept questions stay) or **removed** (minutes the kid already earned stay in the bank).
 - **Time windows:** add and remove locked and free times (days, from, to).
 - **Kid's phone:** make the pairing code for the kid's phone.
 - **Notifications:** WorkManager asks `GET /api/parent/state` about every 15 minutes (Android's minimum) and notifies when a new paper is waiting.

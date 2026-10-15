@@ -77,7 +77,7 @@ data class RuleInfo(val id: String, val mode: String, val days: Int, val startMi
 
 data class PhoneInfo(val id: String, val platform: String, val paired: Boolean, val code: String?)
 
-data class QuestionResultInfo(val text: String, val answerKey: String, val status: String, val tries: Int, val earnedMinutes: Int)
+data class QuestionResultInfo(val id: String, val type: String, val options: List<String>?, val text: String, val answerKey: String, val status: String, val tries: Int, val earnedMinutes: Int)
 
 data class HomeworkInfo(val id: String, val subject: String, val createdAt: String, val solved: Int, val total: Int, val earnedMinutes: Int, val questions: List<QuestionResultInfo>)
 

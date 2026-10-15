@@ -168,7 +168,13 @@ object ParentApi {
             homework = j.getJSONArray("homework").objects().map { h ->
                 HomeworkInfo(
                     h.getString("id"), h.getString("subject"), h.getString("createdAt"), h.getInt("solved"), h.getInt("total"), h.getInt("earnedMinutes"),
-                    h.getJSONArray("questions").objects().map { q -> QuestionResultInfo(q.getString("text"), q.getString("answerKey"), q.getString("status"), q.getInt("tries"), q.getInt("earnedMinutes")) },
+                    h.getJSONArray("questions").objects().map { q ->
+                        QuestionResultInfo(
+                            q.getString("id"), q.getString("type"),
+                            q.optJSONArray("options")?.let { a -> List(a.length()) { i -> a.getString(i) } },
+                            q.getString("text"), q.getString("answerKey"), q.getString("status"), q.getInt("tries"), q.getInt("earnedMinutes"),
+                        )
+                    },
                 )
             },
         )
@@ -211,16 +217,30 @@ object ParentApi {
         }
     }
 
-    suspend fun assignHomework(token: String, kidId: String, subject: String, drafts: List<QuestionDraft>) {
+    private fun homeworkJson(subject: String, drafts: List<QuestionDraft>): JSONObject {
         val questions = JSONArray()
         drafts.filter { it.include }.forEach {
             questions.put(
                 JSONObject().put("text", it.text.trim()).put("type", it.type)
                     .put("options", if (it.type == "multiple_choice") JSONArray(it.options.orEmpty().map(String::trim)) else JSONObject.NULL)
-                    .put("answerKey", it.answerKey.trim()),
+                    .put("answerKey", it.answerKey.trim())
+                    .apply { it.id?.let { id -> put("id", id) } },
             )
         }
-        call("POST", "/api/parent/kids/$kidId/homework", token, JSONObject().put("subject", subject.trim()).put("questions", questions))
+        return JSONObject().put("subject", subject.trim()).put("questions", questions)
+    }
+
+    suspend fun assignHomework(token: String, kidId: String, subject: String, drafts: List<QuestionDraft>) {
+        call("POST", "/api/parent/kids/$kidId/homework", token, homeworkJson(subject, drafts))
+    }
+
+    /** Saves changes to a set: edited questions keep their tries, new ones are added, ones left out are removed. */
+    suspend fun updateHomework(token: String, kidId: String, setId: String, subject: String, drafts: List<QuestionDraft>) {
+        call("PUT", "/api/parent/kids/$kidId/homework/$setId", token, homeworkJson(subject, drafts))
+    }
+
+    suspend fun deleteHomework(token: String, kidId: String, setId: String) {
+        call("DELETE", "/api/parent/kids/$kidId/homework/$setId", token)
     }
 
     /** Asks the AI to read the stored photos and suggest which answers are right. */

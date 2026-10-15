@@ -224,6 +224,42 @@ try {
     const kst = await call("/api/kid/state", kidToken);
     check("kid sees the assigned question", kst.status === 200 && kst.json.question?.text === "1+1?", kst.json);
 
+
+    // edit and remove homework: earned minutes must survive both
+    const setId = hw.json.id;
+    const q0 = detail.json.homework[0].questions[0];
+    const q1 = detail.json.homework[0].questions[1];
+    const ans = await call("/api/kid/answer", kidToken, { questionId: q0.id, answer: "2" });
+    check("kid answers the first question", ans.status === 200 && ans.json.correct === true && ans.json.earnedMinutes > 0, ans);
+    const earnedMin = ans.json.earnedMinutes;
+    const bal = async () => (await call("/api/parent/state", ptoken)).json.kids.find((k: any) => k.id === newId).balanceMinutes;
+    check("bank holds the earned minutes", (await bal()) === earnedMin);
+    const edit = (body: unknown, sid = setId, tok = ptoken) => fetch(`${BASE}/api/parent/kids/${newId}/homework/${sid}`, {
+      method: "PUT", headers: { "content-type": "application/json", authorization: `Bearer ${tok}`, ...(process.env.E2E_BYPASS ? { "x-vercel-protection-bypass": process.env.E2E_BYPASS } : {}) }, body: JSON.stringify(body) });
+    check("edit needs a token", (await edit({ subject: "x", questions: [] }, setId, "nope")).status === 401);
+    check("edit rejects an empty set", (await edit({ subject: "Math", questions: [] })).status === 400);
+    check("edit rejects a bad key", (await edit({ subject: "Math", questions: [{ id: q1.id, text: "Pick b", type: "multiple_choice", options: ["a", "b"], answerKey: "z" }] })).status === 400);
+    check("edit rejects an unknown set", (await edit({ subject: "Math", questions: [{ text: "x", type: "numeric", options: null, answerKey: "1" }] }, crypto.randomUUID())).status === 404);
+    const edited = await edit({ subject: "Maths", questions: [
+      { id: q1.id, text: "Pick the letter b", type: "multiple_choice", options: ["a", "b", "c"], answerKey: "c" },
+      { text: "5-2?", type: "numeric", options: null, answerKey: "3" },
+    ] });
+    check("edit ok (one changed, one added, one removed)", edited.status === 200);
+    detail = await call(`/api/parent/kids/${newId}`, ptoken);
+    const h0 = detail.json.homework[0];
+    check("set has the new subject and two questions", h0.subject === "Maths" && h0.total === 2, h0);
+    check("the changed question kept its id and got the new key", h0.questions[0].id === q1.id && h0.questions[0].answerKey === "c" && h0.questions[0].options.length === 3, h0.questions);
+    check("the added question is last", h0.questions[1].text === "5-2?" && h0.questions[1].answerKey === "3");
+    check("the removed question is gone", !h0.questions.some((q: any) => q.id === q0.id));
+    check("earned minutes survive removing the question", (await bal()) === earnedMin);
+    check("another set id of another kid is not editable", (await fetch(`${BASE}/api/parent/kids/${kidId}/homework/${setId}`, { method: "DELETE", headers: { authorization: `Bearer ${ptoken}` } })).status === 404);
+    const del = await fetch(`${BASE}/api/parent/kids/${newId}/homework/${setId}`, { method: "DELETE", headers: { authorization: `Bearer ${ptoken}`, ...(process.env.E2E_BYPASS ? { "x-vercel-protection-bypass": process.env.E2E_BYPASS } : {}) } });
+    check("delete ok", del.status === 200);
+    check("delete twice is 404", (await fetch(`${BASE}/api/parent/kids/${newId}/homework/${setId}`, { method: "DELETE", headers: { authorization: `Bearer ${ptoken}` } })).status === 404);
+    check("earned minutes survive deleting the set", (await bal()) === earnedMin);
+    check("the set is gone from the results", (await call(`/api/parent/kids/${newId}`, ptoken)).json.homework.length === 0);
+    check("the kid has no question left", (await call("/api/kid/state", kidToken)).json.question === null);
+
     // a pending paper: review it and approve two of the questions
     const [sub] = await sql`insert into paper_submissions (kid_id, set_id, submitted_by, mode, ai_read) values (${kid.id}, ${set.id}, 'kid', 'parent', false) returning id`;
     for (const qid of ids) await sql`insert into paper_answers (submission_id, question_id, legible, ai_correct) values (${sub.id}, ${qid}, false, false)`;
