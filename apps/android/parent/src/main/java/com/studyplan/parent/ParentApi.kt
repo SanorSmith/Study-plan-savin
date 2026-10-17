@@ -73,6 +73,7 @@ object ParentApi {
     suspend fun withdraw(token: String, kidId: String, minutes: Int) = kidAction(token, kidId, JSONObject().put("action", "withdraw").put("minutes", minutes))
     suspend fun emptyBank(token: String, kidId: String) = kidAction(token, kidId, JSONObject().put("action", "reset"))
     suspend fun setAi(token: String, kidId: String, enabled: Boolean) = kidAction(token, kidId, JSONObject().put("action", "ai").put("enabled", enabled))
+    suspend fun message(token: String, kidId: String, text: String) = kidAction(token, kidId, JSONObject().put("action", "message").put("text", text.trim()))
     suspend fun allowSettings(token: String, kidId: String, allow: Boolean) =
         kidAction(token, kidId, JSONObject().put("action", if (allow) "allow_settings" else "block_settings"))
 
@@ -105,13 +106,13 @@ object ParentApi {
         )
     }
 
-    suspend fun approve(token: String, id: String, correct: Set<String>): DecisionResult {
-        val j = call("POST", "/api/parent/papers/$id", token, JSONObject().put("decision", "approve").put("correct", JSONArray(correct.toList())))
+    suspend fun approve(token: String, id: String, correct: Set<String>, note: String): DecisionResult {
+        val j = call("POST", "/api/parent/papers/$id", token, JSONObject().put("decision", "approve").put("correct", JSONArray(correct.toList())).put("note", note.trim()))
         return DecisionResult(j.getInt("awardedMinutes"), j.getInt("correctCount"), j.getInt("total"))
     }
 
-    suspend fun reject(token: String, id: String) {
-        call("POST", "/api/parent/papers/$id", token, JSONObject().put("decision", "reject"))
+    suspend fun reject(token: String, id: String, note: String) {
+        call("POST", "/api/parent/papers/$id", token, JSONObject().put("decision", "reject").put("note", note.trim()))
     }
 
     /** The bytes of one photo of a paper. */

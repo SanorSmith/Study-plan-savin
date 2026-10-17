@@ -108,6 +108,7 @@ export type Copy = {
   tryAgain: (left: number) => string;
   wrongFinal: string;
   answer: string;
+  gotIt: string;
   locked: (until: string) => string;
   free: (until: string) => string;
   pairTitle: string;
@@ -127,6 +128,7 @@ export const COPY: Record<AgeBand, Copy> = {
     tryAgain: (n) => `Oops! Try again 💪 ${"❤️".repeat(Math.max(0, Math.min(n, 3)))}`,
     wrongFinal: "Next one! 🌈",
     answer: "Done ✅",
+    gotIt: "Got it! 👍",
     locked: (u) => `🌙 Back at ${u}`,
     free: (u) => `🎈 Free play until ${u}`,
     pairTitle: "Let's connect! 🔗",
@@ -144,6 +146,7 @@ export const COPY: Record<AgeBand, Copy> = {
     tryAgain: (n) => `Not quite. ${n} ${n === 1 ? "try" : "tries"} left`,
     wrongFinal: "Not this time",
     answer: "Answer",
+    gotIt: "Got it",
     locked: (u) => `Locked until ${u}`,
     free: (u) => `Free time until ${u}`,
     pairTitle: "Connect",
@@ -161,6 +164,7 @@ export const COPY: Record<AgeBand, Copy> = {
     tryAgain: (n) => `Incorrect. ${n} left`,
     wrongFinal: "Incorrect",
     answer: "Submit",
+    gotIt: "OK",
     locked: (u) => `Locked until ${u}`,
     free: (u) => `Free until ${u}`,
     pairTitle: "Connect",

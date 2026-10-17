@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { kids, paperSubmissions } from "@/db/schema";
+import { MAX_NOTE, sendPaperResult } from "@/lib/messages";
 import { getParentApp } from "@/lib/parent-device";
 import { approveSubmission, rejectSubmission, submissionForReview } from "@/lib/paper-service";
 
@@ -53,7 +54,7 @@ export async function GET(_request: Request, context: { params: Promise<{ sid: s
   );
 }
 
-const Decision = z.object({ decision: z.enum(["approve", "reject"]), correct: z.array(z.uuid()).max(100).default([]) });
+const Decision = z.object({ decision: z.enum(["approve", "reject"]), correct: z.array(z.uuid()).max(100).default([]), note: z.string().max(MAX_NOTE).optional() });
 
 /** Approve (the ticked questions count as correct and earn minutes) or reject a paper. */
 export async function POST(request: Request, context: { params: Promise<{ sid: string }> }) {
@@ -65,9 +66,11 @@ export async function POST(request: Request, context: { params: Promise<{ sid: s
 
   if (body.data.decision === "reject") {
     const ok = await rejectSubmission(paper.kid.id, paper.id);
+    if (ok) await sendPaperResult(paper.kid.id, paper.id, "sent_back", body.data.note);
     return ok ? Response.json({ ok: true }) : Response.json({ error: "This paper was already decided" }, { status: 409 });
   }
   const result = await approveSubmission(paper.kid, paper.id, new Set(body.data.correct));
   if (!result) return Response.json({ error: "This paper was already decided" }, { status: 409 });
+  await sendPaperResult(paper.kid.id, paper.id, { correct: result.correctCount, total: result.total, minutes: result.awardedMinutes }, body.data.note);
   return Response.json({ ok: true, ...result });
 }

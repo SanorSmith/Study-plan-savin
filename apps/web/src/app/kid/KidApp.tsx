@@ -85,10 +85,15 @@ export function KidApp() {
     return outcome;
   }
 
+  async function readMessages(ids: string[]) {
+    await post("/api/kid/messages/read", { ids });
+    await refresh();
+  }
+
   const look = LOOKS[band];
   if (view === "home" && state) {
     return (
-      <KidHome state={state} band={band} clockOffset={clockOffset} onAnswer={answer} error={error}>
+      <KidHome state={state} band={band} clockOffset={clockOffset} onAnswer={answer} error={error} onReadMessages={readMessages}>
         {state.paperSets.length > 0 && <PaperCard sets={state.paperSets} aiCheckEnabled={state.aiCheckEnabled} band={band} onChanged={refresh} />}
       </KidHome>
     );

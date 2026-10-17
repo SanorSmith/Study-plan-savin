@@ -19,6 +19,7 @@ import {
   createPairingCode,
   deleteScheduleRule,
   giveBonus,
+  sendKidMessage,
   grantApproval,
   revokeApproval,
   resetBank,
@@ -223,6 +224,17 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
             ) : (
               <p className="text-sm text-slate-500">Nothing yet.</p>
             )}
+          </Card>
+
+          <Card>
+            <CardHeader title="Message" description={`Send ${kid.name} a short note. It shows up in their app.`} />
+            <form action={sendKidMessage.bind(null, kid.id)} className="flex flex-wrap items-end gap-3">
+              <label className={`${labelText} min-w-0 flex-1`}>
+                Your message
+                <input name="text" required maxLength={500} placeholder="Well done this week!" className={field} />
+              </label>
+              <button className={btn.secondary}>Send</button>
+            </form>
           </Card>
 
           <Card>

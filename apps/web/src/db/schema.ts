@@ -222,3 +222,19 @@ export const parentDevices = pgTable("parent_devices", {
   lastSeenAt: timestamp("last_seen_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+/** A message from a parent to a kid: the result of a checked paper, a note, or new practice questions. The kid sees it until they dismiss it. */
+export const kidMessages = pgTable(
+  "kid_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kidId: uuid("kid_id")
+      .notNull()
+      .references(() => kids.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // result | note | practice
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    readAt: timestamp("read_at"),
+  },
+  (t) => [index("kid_messages_by_kid").on(t.kidId, t.createdAt)],
+);
