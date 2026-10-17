@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { playDing } from "@/components/LiveAlerts";
 import { COPY, LOOKS } from "@/components/kid/looks";
 import { KidHome, type AnswerOutcome, type KidQuestion, type KidViewState } from "@/components/kid/KidHome";
 import { PaperCard } from "@/components/kid/PaperCard";
@@ -68,6 +69,46 @@ export function KidApp() {
     setBand(savedBand());
     void refresh();
   }, [refresh]);
+
+  // Rings when a parent sends homework, practice or a message. The first look only learns what is already there.
+  const audio = useRef<AudioContext | null>(null);
+  const seen = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const unlock = () => {
+      if (!audio.current) {
+        const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (Ctx) audio.current = new Ctx();
+      }
+      void audio.current?.resume();
+    };
+    window.addEventListener("pointerdown", unlock, { once: true });
+    const check = async () => {
+      if (view !== "home") return;
+      try {
+        const res = await fetch("/api/kid/news", { cache: "no-store" });
+        if (!res.ok) return;
+        const { items } = (await res.json()) as { items: { id: string; title: string; text: string }[] };
+        const known = seen.current;
+        seen.current = new Set(items.map((i) => i.id));
+        const fresh = known ? items.filter((i) => !known.has(i.id)) : [];
+        if (fresh.length === 0) return;
+        if (audio.current) playDing(audio.current);
+        if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+          new Notification(fresh[0].title, { body: fresh[0].text, icon: "/icons/icon-192.png", tag: fresh[0].id });
+        }
+        void refresh();
+      } catch {
+        // offline for a moment: try again next time
+      }
+    };
+    const timer = setInterval(() => void check(), 20_000);
+    const first = setTimeout(() => void check(), 0);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      clearInterval(timer);
+      clearTimeout(first);
+    };
+  }, [view, refresh]);
 
   async function answer(q: KidQuestion, value: string): Promise<AnswerOutcome | null> {
     setError(null);

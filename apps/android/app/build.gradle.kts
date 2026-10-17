@@ -21,8 +21,8 @@ android {
         applicationId = "com.studyplan.kid"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.10.0"
+        versionCode = 14
+        versionName = "0.11.0"
         buildConfigField("String", "API_BASE_URL", "\"${local.getProperty("api.baseUrl", "https://study-plan-savin.vercel.app")}\"")
         buildConfigField("String", "API_BYPASS", "\"${local.getProperty("api.bypass", "")}\"")
     }
