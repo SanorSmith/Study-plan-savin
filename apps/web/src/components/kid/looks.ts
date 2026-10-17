@@ -109,6 +109,11 @@ export type Copy = {
   wrongFinal: string;
   answer: string;
   gotIt: string;
+  solvedOf: (solved: number, total: number) => string;
+  missedTitle: string;
+  rightAnswer: string;
+  askParent: string;
+  checkNew: string;
   locked: (until: string) => string;
   free: (until: string) => string;
   pairTitle: string;
@@ -129,6 +134,11 @@ export const COPY: Record<AgeBand, Copy> = {
     wrongFinal: "Next one! 🌈",
     answer: "Done ✅",
     gotIt: "Got it! 👍",
+    solvedOf: (s, t) => `${s} of ${t} right ⭐`,
+    missedTitle: "Let's learn these 💡",
+    rightAnswer: "Right answer",
+    askParent: "Want to try again? Ask a grown-up! 👪",
+    checkNew: "Look for new homework 🔄",
     locked: (u) => `🌙 Back at ${u}`,
     free: (u) => `🎈 Free play until ${u}`,
     pairTitle: "Let's connect! 🔗",
@@ -147,6 +157,11 @@ export const COPY: Record<AgeBand, Copy> = {
     wrongFinal: "Not this time",
     answer: "Answer",
     gotIt: "Got it",
+    solvedOf: (s, t) => `${s} of ${t} right`,
+    missedTitle: "To learn from",
+    rightAnswer: "Right answer",
+    askParent: "Want another try? Ask a parent to reopen it.",
+    checkNew: "Look for new homework",
     locked: (u) => `Locked until ${u}`,
     free: (u) => `Free time until ${u}`,
     pairTitle: "Connect",
@@ -165,6 +180,11 @@ export const COPY: Record<AgeBand, Copy> = {
     wrongFinal: "Incorrect",
     answer: "Submit",
     gotIt: "OK",
+    solvedOf: (s, t) => `${s} of ${t} solved`,
+    missedTitle: "Missed",
+    rightAnswer: "Answer",
+    askParent: "A parent can reopen these for another try.",
+    checkNew: "Check for new homework",
     locked: (u) => `Locked until ${u}`,
     free: (u) => `Free until ${u}`,
     pairTitle: "Connect",

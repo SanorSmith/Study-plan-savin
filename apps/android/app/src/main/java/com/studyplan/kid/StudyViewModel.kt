@@ -3,6 +3,7 @@ package com.studyplan.kid
 import android.app.Application
 import android.net.Uri
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -115,6 +116,10 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         loadState(t)
     }
 
+    /** Counts answers sent, so the answer box starts empty again after a wrong try. */
+    var answersSent by mutableIntStateOf(0)
+        private set
+
     fun answer(question: Question, value: String) = run {
         val t = token ?: return@run
         val r = Api.answer(t, question.id, value)
@@ -126,6 +131,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             else -> Feedback(copy.wrongFinal, Tone.Bad)
         }
         feedback = fb
+        answersSent += 1
         celebration = if (r.correct && copy.celebrateEmoji.isNotEmpty()) Celebration(copy.celebrateEmoji, fb.text) else null
         loadState(t)
         if (celebration != null) {

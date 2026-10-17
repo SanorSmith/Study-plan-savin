@@ -93,7 +93,7 @@ export function KidApp() {
   const look = LOOKS[band];
   if (view === "home" && state) {
     return (
-      <KidHome state={state} band={band} clockOffset={clockOffset} onAnswer={answer} error={error} onReadMessages={readMessages}>
+      <KidHome state={state} band={band} clockOffset={clockOffset} onAnswer={answer} error={error} onReadMessages={readMessages} onRefresh={() => void refresh()}>
         {state.paperSets.length > 0 && <PaperCard sets={state.paperSets} aiCheckEnabled={state.aiCheckEnabled} band={band} onChanged={refresh} />}
       </KidHome>
     );
