@@ -24,6 +24,14 @@ The look follows the kid's grade (or the style a parent chose on the dashboard),
 
 Every age types the PIN on an on-screen pad. The lock cover and lock screen use the same colors. The server sends the grade and the parent's choice with the state (`grade`, `uiStyle`, `progress`).
 
+## Looking at the screens without a phone
+
+`ScreenshotTest` draws the real home screen for each age and question type (long answer options, numeric keypad, all done, a message) with Robolectric and Roborazzi, into `app/build/screenshots`. It is slow, so it only runs when asked:
+
+```
+SCREENSHOTS=1 ./gradlew :app:testDebugUnitTest --tests "*ScreenshotTest*"
+```
+
 ## Homework on paper
 
 When a kid has homework with unanswered questions, the home screen shows **Did it on paper?**. The kid takes up to 3 photos

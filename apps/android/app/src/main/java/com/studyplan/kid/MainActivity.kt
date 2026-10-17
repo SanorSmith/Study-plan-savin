@@ -150,13 +150,13 @@ private fun PinScreen(vm: StudyViewModel) {
 }
 
 @Composable
-private fun HomeScreen(vm: StudyViewModel, s: KidState) {
+internal fun HomeScreen(vm: StudyViewModel, s: KidState) {
     val copy = Copies.of(vm.band)
     Text(copy.hi(s.name), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
 
     s.messages.forEach { MessageCard(it, copy) { vm.readMessages(listOf(it.id)) } }
 
-    TimeCard(copy)
+    TimeCard(copy, compact = s.question != null)
 
     if (vm.celebration == null) vm.feedback?.let { FeedbackBox(it) }
 
@@ -233,7 +233,7 @@ private fun FeedbackBox(feedback: Feedback) {
 
 /** The time left as a ring on a bright card, with what the phone is doing right now. The explanation hides behind a ? button. */
 @Composable
-private fun TimeCard(copy: Copy) {
+private fun TimeCard(copy: Copy, compact: Boolean) {
     val context = LocalContext.current
     var remaining by remember { mutableLongStateOf(Store.remainingSec(context)) }
     var window by remember { mutableStateOf(activeWindow(Store.schedule(context), Store.nowMs(context))) }
@@ -246,8 +246,8 @@ private fun TimeCard(copy: Copy) {
         }
     }
     val look = LocalLook.current
-    HeroCard {
-        TimeGauge(minutes = ((remaining + 59) / 60).toInt(), unit = copy.minutes, showEmoji = look.band == AgeBand.Little)
+    HeroCard(compact = compact) {
+        TimeGauge(minutes = ((remaining + 59) / 60).toInt(), unit = copy.minutes, showEmoji = look.band == AgeBand.Little, compact = compact)
         when (window?.mode) {
             Mode.Blocked -> StatusPill(copy.locked(formatMinute(window!!.endMinute)), Color.Black.copy(alpha = 0.25f), Color.White)
             Mode.Free -> StatusPill(copy.free(formatMinute(window!!.endMinute)), Color.White.copy(alpha = 0.25f), Color.White)
@@ -286,18 +286,18 @@ private fun QuestionCard(vm: StudyViewModel, s: KidState, q: Question, copy: Cop
 
             look.bigKeypad && q.type == "numeric" -> {
                 Box(
-                    Modifier.fillMaxWidth().height(72.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(look.corner * 0.7f)),
+                    Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(look.corner * 0.7f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         answer.ifEmpty { "?" },
-                        style = MaterialTheme.typography.displaySmall,
+                        style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.Black,
                         color = if (answer.isEmpty()) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurface,
                     )
                 }
                 Keypad(enabled = !vm.busy, allowDecimal = true, onKey = { answer = applyKey(answer, it, 8, true) })
-                Button(onClick = { vm.answer(q, answer) }, enabled = !vm.busy && answer.isNotBlank(), modifier = Modifier.fillMaxWidth().height(64.dp)) {
+                Button(onClick = { vm.answer(q, answer) }, enabled = !vm.busy && answer.isNotBlank(), modifier = Modifier.fillMaxWidth().height(56.dp)) {
                     Text(copy.answer, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
                 }
             }

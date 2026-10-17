@@ -48,6 +48,13 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         refresh()
     }
 
+    /** For screenshot tests: shows a made-up state without talking to the server. */
+    internal fun showForPreview(s: KidState, b: AgeBand) {
+        state = s
+        band = b
+        screen = Screen.Home
+    }
+
     fun refresh() {
         val t = token
         if (t == null) {
