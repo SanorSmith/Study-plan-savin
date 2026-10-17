@@ -94,6 +94,9 @@ data class QuestionResultInfo(
 
 data class HomeworkInfo(val id: String, val subject: String, val kind: String, val createdAt: String, val solved: Int, val total: Int, val earnedMinutes: Int, val questions: List<QuestionResultInfo>)
 
+/** A practice set sent to the kid: with them, or pulled back by the parent. */
+data class PracticeSetInfo(val id: String, val subject: String, val withdrawn: Boolean, val total: Int, val solved: Int, val createdAt: String)
+
 data class KidDetail(
     val id: String,
     val name: String,
@@ -111,6 +114,7 @@ data class KidDetail(
     val schedule: List<RuleInfo>,
     val phones: List<PhoneInfo>,
     val homework: List<HomeworkInfo>,
+    val practice: List<PracticeSetInfo>,
 )
 
 data class KidProfile(val name: String, val grade: Int, val minutesPerQuestion: Int, val dailyCapMinutes: Int, val uiStyle: String)

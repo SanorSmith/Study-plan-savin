@@ -51,6 +51,7 @@ export async function hasOpenPractice(kidId: string): Promise<boolean> {
       and(
         eq(homeworkSets.kidId, kidId),
         eq(homeworkSets.kind, "practice"),
+        eq(homeworkSets.status, "assigned"), // a set the parent pulled back is not open
         sql`not exists (select 1 from ${attempts} a where a.question_id = ${questions.id} and a.kid_id = ${kidId}::uuid and a.correct)`,
         sql`(select count(*) from ${attempts} a where a.question_id = ${questions.id} and a.kid_id = ${kidId}::uuid) < 3`,
       ),
@@ -120,4 +121,43 @@ export async function retryMissed(kidId: string): Promise<number> {
   );
   await addKidMessage(kidId, "practice", `Another try at ${rows.length} ${rows.length === 1 ? "question" : "questions"} you missed`);
   return rows.length;
+}
+
+export type PracticeListItem = { id: string; subject: string; status: "assigned" | "withdrawn"; total: number; solved: number; createdAt: string };
+
+/** Every practice set sent to the kid, newest first: the ones in their queue and the ones the parent pulled back. */
+export async function practiceSets(kidId: string): Promise<PracticeListItem[]> {
+  const result = await getDb().execute(sql`
+    select s.id, s.subject, s.status, s.created_at,
+           count(q.id)::int as total,
+           count(q.id) filter (where exists (select 1 from attempts a where a.question_id = q.id and a.kid_id = ${kidId}::uuid and a.correct))::int as solved
+    from homework_sets s
+    left join questions q on q.set_id = s.id and q.confirmed = true
+    where s.kid_id = ${kidId}::uuid and s.kind = 'practice' and s.status in ('assigned', 'withdrawn')
+    group by s.id
+    order by s.created_at desc
+    limit 20
+  `);
+  return (result.rows as { id: string; subject: string; status: "assigned" | "withdrawn"; created_at: Date; total: number; solved: number }[]).map((r) => ({
+    id: r.id,
+    subject: r.subject,
+    status: r.status,
+    total: r.total,
+    solved: r.solved,
+    createdAt: new Date(r.created_at).toISOString(),
+  }));
+}
+
+/**
+ * Pulls a practice set back from the kid (they no longer see its questions), or puts it back. Only practice sets, and only the kid's own.
+ * Nothing is deleted: the kid's tries and minutes already earned stay, so the reports keep the history. Returns false if there is no such set.
+ */
+export async function setPracticeStatus(kidId: string, setId: string, status: "assigned" | "withdrawn"): Promise<boolean> {
+  const from = status === "withdrawn" ? "assigned" : "withdrawn";
+  const rows = await getDb()
+    .update(homeworkSets)
+    .set({ status })
+    .where(and(eq(homeworkSets.id, setId), eq(homeworkSets.kidId, kidId), eq(homeworkSets.kind, "practice"), eq(homeworkSets.status, from)))
+    .returning({ id: homeworkSets.id });
+  return rows.length === 1;
 }

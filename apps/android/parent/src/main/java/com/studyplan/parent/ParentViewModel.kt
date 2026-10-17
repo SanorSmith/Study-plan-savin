@@ -331,6 +331,11 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
         paperVersion += 1
     }
 
+    fun pullBackPractice(kidId: String, set: PracticeSetInfo, pullBack: Boolean) =
+        act(if (pullBack) "Pulled back. ${kidNameOf(kidId)} no longer sees ${set.subject}. You can send it again." else "Sent again. ${kidNameOf(kidId)} sees ${set.subject} again.") {
+            ParentApi.pullBackPractice(it, kidId, set.id, pullBack)
+        }
+
     fun retryMissed(kidId: String) = act("Done. {n} missed questions go back to the kid after their homework.") { ParentApi.retryMissed(it, kidId) }
     fun sendMessage(kidId: String, text: String) = act("Message sent.") { ParentApi.message(it, kidId, text) }
     fun bonus(kidId: String, minutes: Int) = act("Added ${minutesLabel(minutes)}.") { ParentApi.bonus(it, kidId, minutes) }

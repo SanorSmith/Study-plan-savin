@@ -19,7 +19,7 @@ vi.mock("@/lib/practice-ai", async (importOriginal) => {
   };
 });
 
-import { hasOpenPractice, runAutoPractice, sendPractice } from "./practice-service";
+import { hasOpenPractice, practiceSets, runAutoPractice, sendPractice, setPracticeStatus } from "./practice-service";
 
 describe.skipIf(!process.env.DATABASE_URL)("automatic practice", () => {
   let db: ReturnType<typeof getDb>;
@@ -81,5 +81,26 @@ describe.skipIf(!process.env.DATABASE_URL)("automatic practice", () => {
     const id = await sendPractice(offKidId, { subject: "Practice: by hand", questions: [{ text: "What is 1 + 1?", type: "numeric", options: null, answerKey: "2" }] });
     const [set] = await db.select().from(homeworkSets).where(eq(homeworkSets.id, id));
     expect(set.kind).toBe("practice");
+  });
+
+  it("a parent can pull a practice set back and send it again, and nothing is deleted", async () => {
+    const id = await sendPractice(offKidId, { subject: "Practice: pull back", questions: [{ text: "What is 2 + 5?", type: "numeric", options: null, answerKey: "7" }] });
+    expect(await hasOpenPractice(offKidId)).toBe(true);
+
+    expect(await setPracticeStatus(offKidId, id, "withdrawn")).toBe(true);
+    expect(await setPracticeStatus(offKidId, id, "withdrawn")).toBe(false); // already pulled back
+    expect((await practiceSets(offKidId)).find((p) => p.id === id)).toMatchObject({ status: "withdrawn", total: 1, solved: 0 });
+    expect(await db.select().from(questions).where(eq(questions.setId, id))).toHaveLength(1); // still there
+    expect((await db.select().from(homeworkSets).where(eq(homeworkSets.id, id)))[0].status).toBe("withdrawn");
+
+    expect(await setPracticeStatus(offKidId, id, "assigned")).toBe(true);
+    expect((await practiceSets(offKidId)).find((p) => p.id === id)?.status).toBe("assigned");
+  });
+
+  it("only practice sets of the kid can be pulled back", async () => {
+    const [plain] = await db.insert(homeworkSets).values({ kidId: offKidId, subject: "Ordinary", status: "assigned" }).returning();
+    expect(await setPracticeStatus(offKidId, plain.id, "withdrawn")).toBe(false); // not practice
+    const mine = await sendPractice(offKidId, { subject: "Practice: mine", questions: [{ text: "What is 1 + 4?", type: "numeric", options: null, answerKey: "5" }] });
+    expect(await setPracticeStatus(kidId, mine, "withdrawn")).toBe(false); // another kid's set
   });
 });

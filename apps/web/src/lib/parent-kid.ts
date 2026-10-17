@@ -2,6 +2,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { creditLedger, devices, homeworkSets, kids, questions, scheduleRules } from "@/db/schema";
 import { balanceOf, earnedToday } from "@/lib/kid-service";
+import { practiceSets } from "@/lib/practice-service";
 import { isPairingValid } from "@/lib/pairing";
 import { homeworkResults } from "@/lib/results";
 import type { z } from "zod";
@@ -11,12 +12,13 @@ import type { HomeworkInput } from "@/lib/homework-input";
 export async function kidDetail(kid: typeof kids.$inferSelect) {
   const db = getDb();
   const now = new Date();
-  const [balance, earned, rules, phones, sets] = await Promise.all([
+  const [balance, earned, rules, phones, sets, practice] = await Promise.all([
     balanceOf(kid.id),
     earnedToday(kid.id),
     db.select().from(scheduleRules).where(eq(scheduleRules.kidId, kid.id)).orderBy(scheduleRules.startMinute),
     db.select().from(devices).where(eq(devices.kidId, kid.id)).orderBy(desc(devices.createdAt)),
     homeworkResults(kid.id),
+    practiceSets(kid.id),
   ]);
   return {
     id: kid.id,
@@ -41,6 +43,7 @@ export async function kidDetail(kid: typeof kids.$inferSelect) {
       // A code is only worth showing while it can still be used.
       code: d.tokenHash === null && isPairingValid(d.pairingExpiresAt, now) ? d.pairingCode : null,
     })),
+    practice,
     homework: sets.map((s) => ({
       id: s.id,
       subject: s.subject,

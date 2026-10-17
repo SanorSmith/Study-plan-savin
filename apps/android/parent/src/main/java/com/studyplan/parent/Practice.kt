@@ -36,6 +36,7 @@ fun PracticeScreen(vm: ParentViewModel, kidId: String) {
     var count by rememberSaveable { mutableIntStateOf(5) }
     var focus by rememberSaveable { mutableStateOf("") }
     var problem by remember { mutableStateOf<String?>(null) }
+    var pulling by remember { mutableStateOf<PracticeSetInfo?>(null) }
     var mode by remember(detail?.autoPractice) { mutableStateOf(detail?.autoPractice ?: "off") }
     var size by remember(detail?.autoPracticeSize) { mutableIntStateOf(detail?.autoPracticeSize ?: 5) }
 
@@ -74,6 +75,29 @@ fun PracticeScreen(vm: ParentViewModel, kidId: String) {
         }
 
         Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Practice sent to $name", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("You can pull a practice set back at any time. $name stops seeing its questions. Nothing is deleted: the tries and minutes already earned stay, and you can send it again.", style = MaterialTheme.typography.bodyMedium)
+                val sent = detail?.practice.orEmpty()
+                if (detail != null && sent.isEmpty()) Text("No practice sent yet.", style = MaterialTheme.typography.bodyMedium)
+                sent.forEach { p ->
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(p.subject, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Chip(if (p.withdrawn) "Pulled back" else "With $name", if (p.withdrawn) Tone.Warn else Tone.Good, bold = true)
+                            Text("${p.solved} of ${p.total} solved · ${p.createdAt.take(10)}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (p.withdrawn) {
+                            androidx.compose.material3.OutlinedButton(onClick = { vm.pullBackPractice(kidId, p, false) }, enabled = !vm.busy) { Text("Send it again") }
+                        } else {
+                            androidx.compose.material3.OutlinedButton(onClick = { pulling = p }, enabled = !vm.busy) { Text("Pull back") }
+                        }
+                    }
+                }
+            }
+        }
+
+        Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Let the AI send practice by itself", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("A short practice set is added between the daily homework, from recent mistakes. It waits until $name has finished the last practice, and you are told when one is added.", style = MaterialTheme.typography.bodyMedium)
@@ -85,5 +109,14 @@ fun PracticeScreen(vm: ParentViewModel, kidId: String) {
                 Button(onClick = { vm.saveAutoPractice(kidId, mode, size) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) { Text("Save") }
             }
         }
+    }
+    pulling?.let { p ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pulling = null },
+            title = { Text("Pull back ${p.subject}?") },
+            text = { Text("$name will no longer see these questions. Nothing is deleted, and you can send it again later.") },
+            confirmButton = { TextButton(onClick = { pulling = null; vm.pullBackPractice(kidId, p, true) }) { Text("Pull back") } },
+            dismissButton = { TextButton(onClick = { pulling = null }) { Text("Cancel") } },
+        )
     }
 }
