@@ -97,7 +97,7 @@ fun HeroCard(modifier: Modifier = Modifier, compact: Boolean = false, content: @
 @Composable
 fun InfoPill(text: String) {
     Box(Modifier.background(MaterialTheme.colorScheme.primaryContainer, CircleShape).padding(horizontal = 14.dp, vertical = 6.dp)) {
-        Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
 
@@ -121,7 +121,7 @@ fun TimeGauge(minutes: Int, unit: String, showEmoji: Boolean, compact: Boolean =
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             if (showEmoji && !compact) Text("🕒", fontSize = 26.sp)
             Text("$minutes", style = if (compact) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Black, color = Color.White)
-            Text(unit, style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.85f))
+            Text(unit, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.85f))
         }
     }
 }

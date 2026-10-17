@@ -18,6 +18,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.annotation.GraphicsMode.Mode
@@ -66,8 +67,9 @@ class ScreenshotTest {
         "Swedish",
     )
 
-    private fun shot(name: String, band: AgeBand, s: KidState) {
+    private fun shot(name: String, band: AgeBand, s: KidState, fontScale: Float = 1f) {
         assumeTrue("set SCREENSHOTS=1 to draw the screens", System.getenv("SCREENSHOTS") == "1")
+        RuntimeEnvironment.setFontScale(fontScale)
         val vm = StudyViewModel(ApplicationProvider.getApplicationContext<Application>())
         vm.showForPreview(s, band)
         compose.setContent {
@@ -107,4 +109,32 @@ class ScreenshotTest {
     @Test
     fun little_all_done() =
         shot("little_all_done", AgeBand.Little, state(null, review = Review(4, 2, listOf(Missed("What is 3/4 + 1/4?", "1"), Missed("What is 12 / 4?", "3")))))
+
+    // Small phones and big system fonts, which is what makes layouts break
+    @Test
+    @Config(qualifiers = "w360dp-h640dp-xhdpi")
+    fun small_little_choice_big_font() = shot("small_little_choice_big_font", AgeBand.Little, state(shortChoice), fontScale = 1.4f)
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp-xhdpi")
+    fun small_little_numeric_big_font() = shot("small_little_numeric_big_font", AgeBand.Little, state(numeric), fontScale = 1.4f)
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp-xhdpi")
+    fun small_middle_long_big_font() = shot("small_middle_long_big_font", AgeBand.Middle, state(longChoice), fontScale = 1.4f)
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp-xhdpi")
+    fun small_teen_numeric_big_font() = shot("small_teen_numeric_big_font", AgeBand.Teen, state(numeric), fontScale = 1.4f)
+
+    @Test
+    fun little_choice_short_normal() = shot("little_choice_short_normal", AgeBand.Little, state(shortChoice))
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp-xhdpi")
+    fun small_long_subject() =
+        shot("small_long_subject", AgeBand.Little, state(Question("q9", "What is 2 + 2?", "numeric", null, "Mathematics and problem solving")), fontScale = 1.3f)
+
+    @Test
+    fun long_subject_normal() = shot("long_subject_normal", AgeBand.Middle, state(Question("q9", "What is 2 + 2?", "numeric", null, "Mathematics and problem solving")))
 }
