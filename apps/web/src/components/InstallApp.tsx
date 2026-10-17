@@ -33,8 +33,9 @@ export function InstallApp() {
   if (mode === "other" && !prompt) return null; // browsers without a one-tap install: nothing useful to show
 
   return (
-    <Card className="mt-6 max-w-xl">
+    <Card>
       <CardHeader
+        icon="⬇️"
         title="Use it as an app"
         description={
           mode === "ios"

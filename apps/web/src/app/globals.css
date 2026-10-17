@@ -2,7 +2,7 @@
 
 :root {
   color-scheme: light;
-  --background: #f8fafc;
+  --background: #f5f6ff;
   --foreground: #0f172a;
 }
 
@@ -13,10 +13,28 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  /* No double-tap or pinch zoom: the pages are made to fit the screen. */
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
-  background: var(--background);
+  background: linear-gradient(180deg, #f5f6ff 0%, #f0fdfa 100%) fixed;
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+}
+
+/* iPhone zooms into any field smaller than 16px when it is tapped, so on phones fields are never smaller. */
+@media (max-width: 1024px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* A short pop for the "you got it" celebration on the kid's page. */

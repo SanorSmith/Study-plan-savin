@@ -13,8 +13,9 @@ export function ParentAppCard({ phones }: { phones: Phone[] }) {
   const [state, action, pending] = useActionState<AppCodeState, FormData>(() => newParentAppCode(), null);
 
   return (
-    <Card className="mt-6 max-w-xl">
+    <Card>
       <CardHeader
+        icon="📱"
         title="Parent app for Android"
         description="Get a notification when a paper is waiting, check it with the photos, and give or take minutes from your phone."
       />

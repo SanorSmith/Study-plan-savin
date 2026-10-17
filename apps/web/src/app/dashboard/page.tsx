@@ -1,27 +1,19 @@
-import { InstallApp } from "@/components/InstallApp";
 import { Suspense } from "react";
 import Link from "next/link";
-import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { attempts, creditLedger, devices, kids, parentDevices } from "@/db/schema";
-import { Avatar, Badge, btn, Card, CardHeader, field, PageHeader } from "@/components/ui";
+import { attempts, creditLedger, devices, kids } from "@/db/schema";
+import { Avatar, Badge, btn, Card, PageHeader } from "@/components/ui";
 import { PageLoading, ParentShell } from "@/components/ParentShell";
 import { requireParent } from "@/lib/auth";
 import { pendingCounts } from "@/lib/paper-service";
-import { AlertsCard } from "./AlertsCard";
-import { ParentAppCard } from "./ParentAppCard";
-import { ChangePasswordForm } from "./ChangePasswordForm";
-import { setParentPin } from "./actions";
+import { pendingPapersFor } from "@/lib/pending";
 
 async function KidList() {
   const parent = await requireParent();
   const db = getDb();
   const list = await db.select().from(kids).where(eq(kids.parentId, parent.id));
   const ids = list.map((k) => k.id);
-  const parentPhones = await db
-    .select({ id: parentDevices.id, name: parentDevices.name, lastSeenAt: parentDevices.lastSeenAt })
-    .from(parentDevices)
-    .where(and(eq(parentDevices.parentId, parent.id), isNotNull(parentDevices.tokenHash)));
   const [balances, tries, phones] = ids.length
     ? await Promise.all([
         db
@@ -49,75 +41,112 @@ async function KidList() {
   const triesOf = new Map(tries.map((t) => [t.kidId, t]));
   const pairedOf = new Map(phones.map((p) => [p.kidId, p.paired]));
   const papersOf = await pendingCounts(ids);
+  const waiting = await pendingPapersFor(parent.id);
 
   return (
     <ParentShell>
       <PageHeader
         title="Your kids"
-        subtitle="Homework earns screen time. Open a kid to add homework, set a schedule or give a bonus."
+        subtitle="Homework earns screen time."
         actions={
           <Link href="/kids/new" className={btn.primary}>
-            Add kid
+            + Add kid
           </Link>
         }
       />
 
+      {waiting.length > 0 && (
+        <Link
+          href={`/kids/${waiting[0].kidId}/papers/${waiting[0].id}`}
+          className="mb-6 flex items-center gap-4 rounded-2xl bg-gradient-to-r from-amber-100 to-orange-100 p-4 shadow-sm ring-1 ring-amber-200 transition hover:shadow-md"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-2xl" aria-hidden="true">
+            📝
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold text-amber-950">
+              {waiting.length === 1 ? `${waiting[0].kidName} sent a paper` : `${waiting.length} papers are waiting for you`}
+            </span>
+            <span className="block text-sm text-amber-900">Tap to check it and add the minutes</span>
+          </span>
+          <span className="text-xl text-amber-900" aria-hidden="true">
+            ›
+          </span>
+        </Link>
+      )}
+
+      {!parent.approvalPinHash && list.length > 0 && (
+        <Link href="/settings" className="mb-6 flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-violet-100 transition hover:shadow-md">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-2xl" aria-hidden="true">
+            🔒
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">Set a parent PIN</span>
+            <span className="block text-sm text-slate-500">So only you can open Settings on a kid&apos;s phone</span>
+          </span>
+          <span className="text-xl text-slate-400" aria-hidden="true">
+            ›
+          </span>
+        </Link>
+      )}
+
       {list.length === 0 ? (
-        <Card className="text-center">
-          <h2 className="text-lg font-semibold">No kids yet</h2>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-slate-600">
-            Add a kid, set their PIN, then pair their phone with a code.
+        <Card className="py-10 text-center">
+          <p className="text-5xl" aria-hidden="true">
+            👋
           </p>
-          <Link href="/kids/new" className={`${btn.primary} mt-4`}>
+          <h2 className="mt-3 text-xl font-semibold">Welcome! Add your first kid</h2>
+          <p className="mx-auto mt-1 max-w-sm text-slate-500">Choose a name and a PIN, then pair their phone with a code.</p>
+          <Link href="/kids/new" className={`${btn.primary} mt-5`}>
             Add your first kid
           </Link>
         </Card>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((k) => {
             const t = triesOf.get(k.id);
             const paired = pairedOf.get(k.id) ?? 0;
+            const papers = papersOf.get(k.id) ?? 0;
+            const percent = t && t.total > 0 ? Math.round((t.right / t.total) * 100) : null;
             return (
-              <li key={k.id} className="relative rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+              <li key={k.id} className="relative rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05),0_10px_30px_rgba(99,102,241,0.08)] ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-lg">
                 <div className="flex items-center gap-3">
-                  <Avatar name={k.name} />
-                  <div className="min-w-0">
-                    <h2 className="truncate text-base font-semibold">
+                  <Avatar name={k.name} size="lg" />
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate text-lg font-semibold">
                       {/* The link covers the whole card; the buttons below sit above it. */}
-                      <Link href={`/kids/${k.id}`} className="after:absolute after:inset-0 after:rounded-xl focus-visible:after:outline-2 focus-visible:after:outline-slate-900">
+                      <Link href={`/kids/${k.id}`} className="after:absolute after:inset-0 after:rounded-2xl focus-visible:after:outline-2 focus-visible:after:outline-violet-600">
                         {k.name}
                       </Link>
                     </h2>
-                    <p className="text-xs text-slate-500">Grade {k.grade}</p>
+                    <p className="text-sm text-slate-500">Grade {k.grade}</p>
                   </div>
+                  {papers > 0 && <Badge tone="warn">{papers} to check</Badge>}
                 </div>
 
-                <p className="mt-4 text-3xl font-semibold tabular-nums">
-                  {balanceOf.get(k.id) ?? 0}
-                  <span className="ml-1 text-base font-normal text-slate-500">min in the bank</span>
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {t ? `${t.right} of ${t.total} answers correct` : "No answers yet"}
-                </p>
+                <div className="mt-5 flex items-end justify-between gap-3">
+                  <p className="text-4xl font-bold tabular-nums text-violet-700">
+                    {balanceOf.get(k.id) ?? 0}
+                    <span className="ml-1 text-base font-medium text-slate-400">min</span>
+                  </p>
+                  {percent !== null && (
+                    <p className="text-right text-sm text-slate-500">
+                      <span className={`font-semibold ${percent >= 80 ? "text-emerald-600" : percent >= 55 ? "text-amber-600" : "text-rose-600"}`}>{percent}%</span> right
+                    </p>
+                  )}
+                </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {paired > 0 ? (
-                    <Badge tone="good">{paired === 1 ? "1 phone paired" : `${paired} phones paired`}</Badge>
-                  ) : (
-                    <Badge tone="warn">No phone paired</Badge>
-                  )}
-                  {!k.pinHash && <Badge tone="warn">No PIN set</Badge>}
-                  {(papersOf.get(k.id) ?? 0) > 0 && (
-                    <Badge tone="warn">{papersOf.get(k.id)} {papersOf.get(k.id) === 1 ? "paper" : "papers"} to review</Badge>
-                  )}
+                  {paired > 0 ? <Badge tone="good">📱 Phone paired</Badge> : <Badge tone="warn">No phone yet</Badge>}
+                  {!k.pinHash && <Badge tone="warn">No PIN</Badge>}
                 </div>
 
-                <div className="relative z-10 mt-4 flex gap-4 border-t border-slate-100 pt-3">
-                  <Link href={`/kids/${k.id}/homework/new`} className={btn.link}>
-                    Add homework
+                <div className="relative z-10 mt-5 flex gap-2 border-t border-slate-100 pt-4">
+                  <Link href={`/kids/${k.id}/homework/new`} className={`${btn.primary} flex-1 !px-3`}>
+                    + Homework
                   </Link>
-                  <Link href={`/kids/${k.id}/homework`} className={btn.link}>
-                    Results
+                  <Link href={`/kids/${k.id}/performance`} className={`${btn.secondary} flex-1 !px-3`}>
+                    Progress
                   </Link>
                 </div>
               </li>
@@ -125,61 +154,6 @@ async function KidList() {
           })}
         </ul>
       )}
-
-      <InstallApp />
-
-      <Card className="mt-8 max-w-xl">
-        <CardHeader
-          title="Parent PIN"
-          description={
-            <>
-              A 6-digit PIN you type on a kid&apos;s phone to open Settings or uninstall the app.{" "}
-              {parent.approvalPinHash ? "A PIN is set. Enter a new one to change it." : "No PIN is set yet."}
-            </>
-          }
-        />
-        <form action={setParentPin} className="flex flex-wrap items-center gap-2">
-          <input
-            name="pin"
-            inputMode="numeric"
-            pattern="\d{6}"
-            maxLength={6}
-            required
-            placeholder="6 digits"
-            autoComplete="off"
-            aria-label="New parent PIN"
-            className={`${field} !mt-0 w-36`}
-          />
-          <button className={btn.secondary}>{parent.approvalPinHash ? "Change PIN" : "Set PIN"}</button>
-        </form>
-      </Card>
-
-      <AlertsCard />
-
-      <ParentAppCard phones={parentPhones} />
-
-      <Card className="mt-6 max-w-xl">
-        <CardHeader
-          title="Web apps (iPhone, tablets, any browser)"
-          description="Both work in a browser and can be added to the home screen as apps. The kid page cannot lock the phone: only the Android kid app does that."
-        />
-        <ul className="space-y-1 text-sm">
-          <li>
-            Parent: <a className={btn.link} href="/dashboard">study-plan-savin.vercel.app/dashboard</a>
-          </li>
-          <li>
-            Kid: <a className={btn.link} href="/kid">study-plan-savin.vercel.app/kid</a>
-          </li>
-        </ul>
-      </Card>
-
-      <Card className="mt-6 max-w-xl">
-        <CardHeader
-          title="Account"
-          description={parent.email ? `Signed in as ${parent.email}.` : "Change the password you use to sign in."}
-        />
-        <ChangePasswordForm />
-      </Card>
     </ParentShell>
   );
 }

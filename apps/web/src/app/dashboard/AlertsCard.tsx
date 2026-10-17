@@ -72,8 +72,9 @@ export function AlertsCard() {
   }
 
   return (
-    <Card className="mt-6 max-w-xl">
+    <Card>
       <CardHeader
+        icon="🔔"
         title="Sound alerts"
         description="Hear a sound and see a notification when a kid sends a paper, even when this website is closed. Open pages also ring by themselves."
       />
