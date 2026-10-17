@@ -10,6 +10,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -269,13 +271,15 @@ private fun StatusPill(text: String, container: Color, content: Color) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun QuestionCard(vm: StudyViewModel, s: KidState, q: Question, copy: Copy) {
     val look = LocalLook.current
     var answer by remember(q.id, vm.answersSent) { mutableStateOf("") } // empty again after every try
     LookCard {
         s.progress?.let { HomeworkProgress(it.done, it.total) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Wraps to a second line instead of running off the screen when the subject name is long.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             InfoPill(q.subject)
             InfoPill("+${minOf(s.minutesPerQuestion, s.earnableTodayMinutes)} ${copy.minutes}")
         }
