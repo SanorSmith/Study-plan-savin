@@ -89,7 +89,7 @@ export function buildStats(rows: AttemptRow[], opts: { period: Period; from: Dat
     .filter((q) => q.wrong > 0)
     .sort((a, b) => Number(a.solved) - Number(b.solved) || b.wrong - a.wrong)
     .slice(0, 15)
-    .map(({ wrong: _wrong, ...q }) => q);
+    .map((q) => ({ text: q.text, subject: q.subject, answerKey: q.answerKey, tries: q.tries, solved: q.solved, wrongAnswers: q.wrongAnswers }));
 
   return {
     period: opts.period,

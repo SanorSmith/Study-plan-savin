@@ -80,7 +80,7 @@ data class PhoneInfo(val id: String, val platform: String, val paired: Boolean, 
 
 data class QuestionResultInfo(val id: String, val type: String, val options: List<String>?, val text: String, val answerKey: String, val status: String, val tries: Int, val earnedMinutes: Int)
 
-data class HomeworkInfo(val id: String, val subject: String, val createdAt: String, val solved: Int, val total: Int, val earnedMinutes: Int, val questions: List<QuestionResultInfo>)
+data class HomeworkInfo(val id: String, val subject: String, val kind: String, val createdAt: String, val solved: Int, val total: Int, val earnedMinutes: Int, val questions: List<QuestionResultInfo>)
 
 data class KidDetail(
     val id: String,
@@ -93,6 +93,8 @@ data class KidDetail(
     val balanceMinutes: Int,
     val earnedTodayMinutes: Int,
     val aiCheckEnabled: Boolean,
+    val autoPractice: String,
+    val autoPracticeSize: Int,
     val approvedForSettings: Boolean,
     val schedule: List<RuleInfo>,
     val phones: List<PhoneInfo>,
@@ -155,3 +157,16 @@ fun periodLabel(period: String): String = when (period) {
     "year" -> "Last year"
     else -> "Last 7 days"
 }
+
+/** How often the AI may send practice by itself. */
+val AUTO_MODES = listOf("off", "daily", "every_other_day", "weekly")
+
+fun autoLabel(mode: String): String = when (mode) {
+    "daily" -> "Every day"
+    "every_other_day" -> "Every other day"
+    "weekly" -> "Once a week"
+    else -> "Off"
+}
+
+/** Practice questions made by the AI, before the parent has checked them. */
+data class PracticeDraft(val subject: String, val questions: List<QuestionDraft>)

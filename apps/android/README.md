@@ -106,9 +106,14 @@ it is the parent's remote control for the same account.
   turn AI checking on or off, allow Settings on the kid's phone for 10 minutes.
 - **Homework:** photograph a worksheet, the AI suggests questions and answers, the parent edits the answers and assigns it. Every question, key and try is listed under results.
   A set can be **edited** (change a question or answer, add or untick questions; tries on kept questions stay) or **removed** (minutes the kid already earned stay in the bank).
+- **Reply to the kid:** a note and quick replies when a paper is decided (the kid sees the result and the note), and a free message on the kid's page.
+- **Performance report:** week, month or year, with **Assess performance with AI** (strengths, needs practice, what to do) and earlier assessments.
+- **Practice questions:** the AI makes new questions from what was hard, the parent edits and sends them, or turns on automatic practice between the daily homework.
+- **PDF:** worksheets and papers can be PDFs. PDF pages are drawn with `PdfRenderer` in the paper review.
+- **Instant sound alerts:** a foreground service (`AlertService`) asks `/api/parent/pending` every 30 s (slower when offline) and rings with a loud notification channel; it restarts after a reboot. Switch it off on the home screen to fall back to the 15 minute check.
 - **Time windows:** add and remove locked and free times (days, from, to).
 - **Kid's phone:** make the pairing code for the kid's phone.
-- **Notifications:** WorkManager asks `GET /api/parent/state` about every 15 minutes (Android's minimum) and notifies when a new paper is waiting.
+- **Fallback notifications:** WorkManager asks `GET /api/parent/state` about every 15 minutes (Android's minimum) and notifies when a new paper is waiting.
   It uses no Firebase, so there is no extra account. The delay can be up to about 15 minutes, and phones that restrict background work may delay it more.
 
 Still on the website only: the parent PIN for the kid's phone, the account password, and deleting a kid.

@@ -326,6 +326,31 @@ try {
       check("the saved assessment is listed", again.json.reports.length >= 1 && again.json.reports[0].period === "week");
     }
 
+    // practice: the parent sends a set, the kid gets it; automatic practice settings; the cron route is closed to strangers
+    const practiceUrl = `/api/parent/kids/${newId}/practice`;
+    check("practice needs a token", (await call(practiceUrl, null, { action: "send", subject: "x", questions: [] })).status === 401);
+    check("practice refuses an unknown action", (await call(practiceUrl, ptoken, { action: "dance" })).status === 400);
+    check("a practice set needs questions", (await call(practiceUrl, ptoken, { action: "send", subject: "Practice: sums", questions: [] })).status === 400);
+    check("a practice key must fit the question", (await call(practiceUrl, ptoken, { action: "send", subject: "Practice", questions: [{ text: "x", type: "numeric", options: null, answerKey: "many" }] })).status === 400);
+    const sentSet = await call(practiceUrl, ptoken, { action: "send", subject: "Practice: sums", questions: [{ text: "What is 6 + 7?", type: "numeric", options: null, answerKey: "13" }, { text: "Pick the even one", type: "multiple_choice", options: ["3", "4", "5"], answerKey: "4" }] });
+    check("a practice set is sent", sentSet.status === 200 && !!sentSet.json.id, sentSet);
+    const pst = await call("/api/kid/state", kidToken);
+    check("the practice waits behind the homework the kid already has, and a message tells them", pst.json.question?.subject === "Science" && pst.json.paperSets.some((x: any) => x.subject === "Practice: sums") && pst.json.messages.some((m: any) => m.kind === "practice" && m.body.includes("Practice: sums")), pst.json);
+    const pd = await call(`/api/parent/kids/${newId}`, ptoken);
+    check("the set is marked as practice in the results", pd.json.homework.some((h: any) => h.kind === "practice" && h.subject === "Practice: sums"), pd.json.homework);
+    await call("/api/kid/messages/read", kidToken, {});
+    check("automatic practice can be switched on", (await act(newId, { action: "auto_practice", mode: "daily", size: 4 })).status === 200);
+    const ad = await call(`/api/parent/kids/${newId}`, ptoken);
+    check("detail shows the automatic practice setting", ad.json.autoPractice === "daily" && ad.json.autoPracticeSize === 4, ad.json);
+    check("an unknown automatic mode is refused", (await act(newId, { action: "auto_practice", mode: "hourly", size: 4 })).status === 400);
+    check("a bad size is refused", (await act(newId, { action: "auto_practice", mode: "daily", size: 50 })).status === 400);
+    await act(newId, { action: "auto_practice", mode: "off", size: 5 });
+    check("the cron route is closed to strangers", (await fetch(`${BASE}/api/cron/practice`, { headers: { "user-agent": "curl/8" } })).status === 401);
+    if (process.env.E2E_ASSESS) {
+      const made = await call(`/api/parent/kids/${kidId}/practice`, ptoken, { action: "generate", period: "week", count: 3 });
+      check("the AI makes practice questions", made.status === 200 && made.json.questions.length >= 1 && typeof made.json.subject === "string", made.json);
+    }
+
     // a pending paper: review it and approve two of the questions
     const [sub] = await sql`insert into paper_submissions (kid_id, set_id, submitted_by, mode, ai_read) values (${kid.id}, ${set.id}, 'kid', 'parent', false) returning id`;
     for (const qid of ids) await sql`insert into paper_answers (submission_id, question_id, legible, ai_correct) values (${sub.id}, ${qid}, false, false)`;
@@ -360,6 +385,8 @@ try {
     check("another parent cannot act on the kid", (await call(`/api/parent/kids/${kidId}`, otherToken, { action: "bonus", minutes: 5 })).status === 404);
     check("another parent cannot read the paper", (await call(`/api/parent/papers/${sub.id}`, otherToken)).status === 404);
     check("another parent cannot decide the paper", (await call(`/api/parent/papers/${sub.id}`, otherToken, { decision: "reject" })).status === 404);
+    check("another parent cannot make practice", (await call(`/api/parent/kids/${kidId}/practice`, otherToken, { action: "generate", period: "week", count: 3 })).status === 404);
+    check("another parent cannot send practice", (await call(`/api/parent/kids/${kidId}/practice`, otherToken, { action: "send", subject: "x", questions: [] })).status === 404);
     check("another parent cannot see the performance", (await call(`/api/parent/kids/${kidId}/performance?period=week`, otherToken)).status === 404);
     check("another parent cannot assess", (await call(`/api/parent/kids/${kidId}/performance`, otherToken, { period: "week" })).status === 404);
     check("another parent cannot read a kid", (await call(`/api/parent/kids/${kidId}`, otherToken)).status === 404);

@@ -139,6 +139,7 @@ fun PerformanceScreen(vm: ParentViewModel, kidId: String) {
                     AssessmentCard(it)
                 }
             }
+            OutlinedButton(onClick = { vm.openPractice(kidId) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Make practice questions") }
             val earlier = data.reports.filter { it !== data.reports.firstOrNull { r -> r.period == vm.period } && it.assessment != null }.take(4)
             if (earlier.isNotEmpty()) {
                 Block("Earlier assessments") {
