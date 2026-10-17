@@ -256,5 +256,44 @@ object ParentApi {
         raw("POST", "/api/parent/papers/$paperId/ai", token, "application/json", "{}".toByteArray(), 120_000)
     }
 
+    private fun JSONObject.intOrNull(name: String): Int? = if (isNull(name) || !has(name)) null else getInt(name)
+
+    private fun statsFrom(j: JSONObject): StatsInfo {
+        val t = j.getJSONObject("totals")
+        return StatsInfo(
+            period = j.getString("period"),
+            totals = Totals(t.getInt("questions"), t.getInt("solved"), t.getInt("failed"), t.getInt("attempts"), t.intOrNull("accuracy"), t.intOrNull("firstTryRate"), t.getInt("earnedMinutes"), t.getInt("papersChecked")),
+            subjects = j.getJSONArray("subjects").objects().map { SubjectStat(it.getString("subject"), it.getInt("questions"), it.getInt("solved"), it.getInt("failed"), it.intOrNull("accuracy")) },
+            trend = j.getJSONArray("trend").objects().map { TrendPoint(it.getString("label"), it.getInt("attempts"), it.intOrNull("accuracy")) },
+            hardest = j.getJSONArray("hardest").objects().map { h ->
+                HardQuestion(h.getString("text"), h.getString("subject"), h.getString("answerKey"), h.getInt("tries"), h.getBoolean("solved"), h.getJSONArray("wrongAnswers").let { a -> List(a.length()) { i -> a.getString(i) } })
+            },
+        )
+    }
+
+    private fun pairs(a: JSONArray): List<Pair<String, String>> = a.objects().map { it.getString("topic") to it.getString("evidence") }
+
+    private fun strings(a: JSONArray): List<String> = List(a.length()) { a.getString(it) }
+
+    private fun assessmentFrom(j: JSONObject) = AssessmentInfo(
+        j.getString("summary"), pairs(j.getJSONArray("strengths")), pairs(j.getJSONArray("weaknesses")),
+        strings(j.getJSONArray("recommendations")), j.getString("encouragement"), strings(j.getJSONArray("practiceFocus")),
+    )
+
+    suspend fun performance(token: String, kidId: String, period: String): PerformanceData {
+        val j = call("GET", "/api/parent/kids/$kidId/performance?period=$period", token)
+        return PerformanceData(
+            statsFrom(j.getJSONObject("stats")),
+            j.getJSONArray("reports").objects().map {
+                ReportInfo(it.getString("id"), it.getString("period"), it.getString("createdAt"), it.getJSONObject("stats").getJSONObject("totals").intOrNull("accuracy"), if (it.isNull("assessment")) null else assessmentFrom(it.getJSONObject("assessment")))
+            },
+        )
+    }
+
+    /** "Assess performance with AI": the server reads the numbers and saves the assessment. */
+    suspend fun assess(token: String, kidId: String, period: String) {
+        raw("POST", "/api/parent/kids/$kidId/performance", token, "application/json", JSONObject().put("period", period).toString().toByteArray(), 120_000)
+    }
+
     private fun JSONArray.objects(): List<JSONObject> = List(length()) { getJSONObject(it) }
 }

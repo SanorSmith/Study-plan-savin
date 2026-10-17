@@ -308,6 +308,24 @@ try {
     check("the public push key is served and stable", key1.status === 200 && key1.json.publicKey.length > 60 && key1.json.publicKey === key2.json.publicKey, key1.json);
     check("the service worker is served", (await fetch(`${BASE}/sw.js`)).status === 200);
 
+    // performance: numbers for a period, and the AI assessment
+    const perf = await call(`/api/parent/kids/${kidId}/performance?period=week`, ptoken);
+    check("performance numbers come back", perf.status === 200 && perf.json.stats.totals.attempts >= 5 && perf.json.stats.subjects[0].subject === "Math", perf.json?.stats?.totals);
+    check("the trend has seven days", perf.json.stats.trend.length === 7);
+    check("the hardest questions are listed", perf.json.stats.hardest.length >= 1 && typeof perf.json.stats.hardest[0].answerKey === "string");
+    check("month and year work too", (await call(`/api/parent/kids/${kidId}/performance?period=month`, ptoken)).json.stats.trend.length === 6 && (await call(`/api/parent/kids/${kidId}/performance?period=year`, ptoken)).json.stats.trend.length === 12);
+    check("a bad period is refused", (await call(`/api/parent/kids/${kidId}/performance?period=decade`, ptoken)).status === 400);
+    check("performance needs a token", (await call(`/api/parent/kids/${kidId}/performance?period=week`, null)).status === 401);
+    check("assessing needs a valid period", (await call(`/api/parent/kids/${kidId}/performance`, ptoken, { period: "decade" })).status === 400);
+    const blank = await call("/api/parent/kids", ptoken, { profile: { name: "Blank", grade: 3, minutesPerQuestion: 5, dailyCapMinutes: 60 } });
+    check("nothing to assess for a kid without answers", (await call(`/api/parent/kids/${blank.json.id}/performance`, ptoken, { period: "week" })).status === 409);
+    if (process.env.E2E_ASSESS) {
+      const assessed = await call(`/api/parent/kids/${kidId}/performance`, ptoken, { period: "week" });
+      check("the AI assessment is made and saved", assessed.status === 200 && assessed.json.assessment.summary.length > 20 && Array.isArray(assessed.json.assessment.weaknesses), assessed.json);
+      const again = await call(`/api/parent/kids/${kidId}/performance?period=week`, ptoken);
+      check("the saved assessment is listed", again.json.reports.length >= 1 && again.json.reports[0].period === "week");
+    }
+
     // a pending paper: review it and approve two of the questions
     const [sub] = await sql`insert into paper_submissions (kid_id, set_id, submitted_by, mode, ai_read) values (${kid.id}, ${set.id}, 'kid', 'parent', false) returning id`;
     for (const qid of ids) await sql`insert into paper_answers (submission_id, question_id, legible, ai_correct) values (${sub.id}, ${qid}, false, false)`;
@@ -342,6 +360,8 @@ try {
     check("another parent cannot act on the kid", (await call(`/api/parent/kids/${kidId}`, otherToken, { action: "bonus", minutes: 5 })).status === 404);
     check("another parent cannot read the paper", (await call(`/api/parent/papers/${sub.id}`, otherToken)).status === 404);
     check("another parent cannot decide the paper", (await call(`/api/parent/papers/${sub.id}`, otherToken, { decision: "reject" })).status === 404);
+    check("another parent cannot see the performance", (await call(`/api/parent/kids/${kidId}/performance?period=week`, otherToken)).status === 404);
+    check("another parent cannot assess", (await call(`/api/parent/kids/${kidId}/performance`, otherToken, { period: "week" })).status === 404);
     check("another parent cannot read a kid", (await call(`/api/parent/kids/${kidId}`, otherToken)).status === 404);
     check("another parent cannot add homework", (await call(`/api/parent/kids/${kidId}/homework`, otherToken, { subject: "x", questions: [{ text: "q", type: "numeric", options: null, answerKey: "1" }] })).status === 404);
     check("another parent cannot pair a phone", (await call(`/api/parent/kids/${kidId}`, otherToken, { action: "pair_phone" })).status === 404);

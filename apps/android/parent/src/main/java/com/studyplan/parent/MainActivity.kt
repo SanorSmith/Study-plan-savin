@@ -81,6 +81,7 @@ private fun Root(vm: ParentViewModel) {
             is Screen.Results -> ResultsScreen(vm, s.id)
             is Screen.NewHomework -> NewHomeworkScreen(vm, s.id)
             is Screen.EditHomework -> EditHomeworkScreen(vm, s.id, s.setId)
+            is Screen.Performance -> PerformanceScreen(vm, s.id)
         }
     }
 }
