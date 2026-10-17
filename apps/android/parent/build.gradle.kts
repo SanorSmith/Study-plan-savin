@@ -19,8 +19,8 @@ android {
         applicationId = "com.studyplan.parent"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.7.0"
+        versionCode = 9
+        versionName = "0.7.1"
         buildConfigField("String", "API_BASE_URL", "\"${local.getProperty("api.baseUrl", "https://study-plan-savin.vercel.app")}\"")
     }
 

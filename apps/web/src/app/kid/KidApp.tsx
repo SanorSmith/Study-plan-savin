@@ -101,7 +101,7 @@ export function KidApp() {
 
   return (
     <div className={`min-h-screen ${look.page}`}>
-      <main className="mx-auto max-w-md px-4 py-10">
+      <main className="mx-auto max-w-md px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-[max(2.5rem,env(safe-area-inset-top))]">
         {view === "loading" && (
           <p role="status" className="text-center text-lg opacity-70">
             …
