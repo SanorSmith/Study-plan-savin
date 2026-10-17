@@ -1,5 +1,6 @@
 package com.studyplan.parent
 
+import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.captureRoboImage
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
@@ -64,4 +66,48 @@ class ScreenshotTest {
         DraftCard(1, QuestionDraft("Which of these numbers is a prime number between ten and twenty?", "multiple_choice", listOf("12", "15", "17", "21"), "17", true, "b"), {})
         DraftCard(2, QuestionDraft("Share 24 sweets equally between 6 children.", "numeric", null, "4", false, "c"), {})
     }
+
+    private val kids = listOf(
+        KidSummary("k1", "Mia", 5, 34, 1, true, false, 1),
+        KidSummary("k2", "Alvin", 2, 0, 0, false, false, 0),
+        KidSummary("k3", "Sanna", 8, 120, 2, false, false, 0),
+    )
+    private val state = ParentState(kids, listOf(PaperItem("p1", "k1", "Mia", "Math", "2026-10-17T12:00:00Z")))
+    private val detail = KidDetail(
+        "k1", "Mia", 5, 10, 120, "auto", true, 34, 40, true, "off", 5, false,
+        listOf(RuleInfo("r1", "blocked", 31, 1260, 420), RuleInfo("r2", "free", 96, 900, 1020)),
+        listOf(PhoneInfo("d1", "android", true, null)),
+        listOf(HomeworkInfo("h1", "Math", "homework", "2026-10-15T10:00:00Z", 2, 3, 20, results.take(3))),
+        listOf(PracticeSetInfo("s1", "Practice: fractions", false, 5, 2, "2026-10-16T10:00:00Z")),
+    )
+
+    private fun screen(name: String, content: @Composable (ParentViewModel) -> Unit) {
+        assumeTrue("set SCREENSHOTS=1 to draw the screens", System.getenv("SCREENSHOTS") == "1")
+        val vm = ParentViewModel(ApplicationProvider.getApplicationContext<Application>())
+        vm.showForPreview(state, detail)
+        compose.setContent {
+            MaterialTheme(
+                colorScheme = lightColorScheme(
+                    primary = Color(0xFF6C4CF1), onPrimary = Color.White, primaryContainer = Color(0xFFEDE9FE), onPrimaryContainer = Color(0xFF3B1FA8),
+                    secondaryContainer = Color(0xFFEDE9FE), onSecondaryContainer = Color(0xFF3B1FA8), background = Color(0xFFF5F6FF), surface = Color.White,
+                ),
+            ) { content(vm) }
+        }
+        compose.onRoot().captureRoboImage("build/screenshots/$name.png")
+    }
+
+    @Test
+    fun home() = screen("home") { HomeScreen(it) }
+
+    @Test
+    fun kid_today() = screen("kid_today") { KidScreen(it, "k1", "today") }
+
+    @Test
+    fun kid_homework() = screen("kid_homework") { KidScreen(it, "k1", "homework") }
+
+    @Test
+    fun kid_time() = screen("kid_time") { KidScreen(it, "k1", "time") }
+
+    @Test
+    fun kid_settings() = screen("kid_settings") { KidScreen(it, "k1", "settings") }
 }
