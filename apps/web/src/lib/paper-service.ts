@@ -215,7 +215,12 @@ export async function submissionForReview(submissionId: string, kidId: string) {
     .innerJoin(questions, eq(questions.id, paperAnswers.questionId))
     .where(eq(paperAnswers.submissionId, submissionId))
     .orderBy(asc(questions.position));
-  return { submission, answers: rows };
+  const pages = await db
+    .select({ contentType: paperImages.contentType })
+    .from(paperImages)
+    .where(eq(paperImages.submissionId, submissionId))
+    .orderBy(asc(paperImages.position));
+  return { submission: { ...submission, imageTypes: pages.map((p) => p.contentType) }, answers: rows };
 }
 
 /**

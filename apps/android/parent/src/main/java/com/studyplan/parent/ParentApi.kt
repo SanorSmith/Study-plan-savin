@@ -88,6 +88,7 @@ object ParentApi {
             autoApproved = j.getBoolean("autoApproved"),
             awardedMinutes = j.optInt("awardedMinutes", 0),
             imageCount = j.getInt("imageCount"),
+            imageTypes = j.optJSONArray("imageTypes")?.let { a -> List(a.length()) { i -> a.getString(i) } } ?: emptyList(),
             answers = j.getJSONArray("answers").objects().map {
                 PaperAnswer(
                     questionId = it.getString("questionId"),
@@ -203,9 +204,9 @@ object ParentApi {
         call("POST", "/api/parent/kids/$id", token, JSONObject().put("action", "pair_phone")).getString("code")
 
     /** Reads a worksheet photo and suggests questions; nothing is assigned yet. */
-    suspend fun extractHomework(token: String, jpeg: ByteArray, grade: Int): List<QuestionDraft> {
+    suspend fun extractHomework(token: String, file: WorksheetFile, grade: Int): List<QuestionDraft> {
         val boundary = "----studyplan${System.currentTimeMillis()}"
-        val body = multipartBody(boundary, mapOf("grade" to grade.toString()), listOf(FilePart("image", "worksheet.jpg", "image/jpeg", jpeg)))
+        val body = multipartBody(boundary, mapOf("grade" to grade.toString()), listOf(FilePart("image", if (isPdf(file.contentType)) "worksheet.pdf" else "worksheet.jpg", file.contentType, file.bytes)))
         val j = raw("POST", "/api/parent/homework/extract", token, "multipart/form-data; boundary=$boundary", body, 120_000)
         return j.getJSONArray("questions").objects().map {
             QuestionDraft(

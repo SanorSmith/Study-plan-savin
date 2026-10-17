@@ -140,8 +140,9 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     fun sendPaper(setId: String, photos: List<Uri>, mode: String, onSent: () -> Unit) = run {
         message = null
         val t = token ?: return@run
-        val jpegs = withContext(Dispatchers.IO) { photos.map { ImageShrink.toJpeg(ctx, it) } }
-        val result = Api.uploadPaper(t, setId, jpegs, mode)
+        val files = withContext(Dispatchers.IO) { photos.mapIndexed { i, uri -> PaperFiles.read(ctx, uri, i) } }
+        if (PaperFiles.tooLarge(files.map { it.bytes.size })) throw ApiException(413, "The files are too big. Use a smaller PDF or fewer pages.")
+        val result = Api.uploadPaper(t, setId, files, mode)
         message = if (result.checkedByAi) {
             "The AI checked your paper: ${result.correct} of ${result.total} correct. " +
                 if (result.minutes > 0) "+${result.minutes} minutes!" else "No new minutes this time."

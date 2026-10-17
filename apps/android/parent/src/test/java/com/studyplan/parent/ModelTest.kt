@@ -62,4 +62,23 @@ class ModelTest {
         assertEquals("ABCD2345", cleanCode("abcd2345xyz"))
         assertFalse(cleanCode("--").isNotEmpty())
     }
+
+    @Test
+    fun pdfsAreRecognised() {
+        assertTrue(isPdf("application/pdf"))
+        assertFalse(isPdf("image/jpeg"))
+        assertFalse(isPdf(null))
+    }
+
+    @Test
+    fun uploadsOverFourMegabytesAreRefused() {
+        assertFalse(uploadTooLarge(3_999_999))
+        assertTrue(uploadTooLarge(4_000_001))
+    }
+
+    @Test
+    fun pdfPagesKeepTheirShape() {
+        assertEquals(1500 to 2123, PdfPages.pageSize(595, 842))
+        assertEquals(1500 to 1500, PdfPages.pageSize(0, 0))
+    }
 }

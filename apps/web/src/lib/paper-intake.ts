@@ -3,7 +3,7 @@ import type { kids } from "@/db/schema";
 import { gradePaper, PaperGradingError, type PaperImage } from "@/lib/paper-grading";
 import { approveSubmission, createSubmission, purgeOldPaperImages, questionsForSet } from "@/lib/paper-service";
 
-const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"] as const;
 const MAX_IMAGES = 3;
 // Vercel rejects request bodies over 4.5 MB, so the app shrinks photos first and this stays just under.
 const MAX_TOTAL_BYTES = 4_200_000;
@@ -24,13 +24,13 @@ export type CheckMode = z.infer<typeof CheckMode>;
 /** The photos in an upload (the form field "image", up to three pages). */
 export async function readImages(form: FormData): Promise<PaperImage[]> {
   const files = form.getAll("image").filter((f): f is File => f instanceof File);
-  if (files.length === 0) throw new IntakeError("A photo of the paper is required", 400);
+  if (files.length === 0) throw new IntakeError("A photo or PDF of the paper is required", 400);
   if (files.length > MAX_IMAGES) throw new IntakeError(`At most ${MAX_IMAGES} photos`, 400);
-  if (files.reduce((n, f) => n + f.size, 0) > MAX_TOTAL_BYTES) throw new IntakeError("The photos are too large", 413);
+  if (files.reduce((n, f) => n + f.size, 0) > MAX_TOTAL_BYTES) throw new IntakeError("The files are too large (4 MB in all)", 413);
 
   return Promise.all(
     files.map(async (f) => {
-      if (!MEDIA_TYPES.includes(f.type as (typeof MEDIA_TYPES)[number])) throw new IntakeError("Use a JPEG, PNG or WebP photo", 415);
+      if (!MEDIA_TYPES.includes(f.type as (typeof MEDIA_TYPES)[number])) throw new IntakeError("Use a JPEG, PNG or WebP photo, or a PDF", 415);
       return { mediaType: f.type as PaperImage["mediaType"], base64: Buffer.from(await f.arrayBuffer()).toString("base64") };
     }),
   );

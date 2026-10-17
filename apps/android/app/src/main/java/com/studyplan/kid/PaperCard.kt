@@ -85,6 +85,9 @@ fun PaperCard(vm: StudyViewModel, sets: List<PaperSet>, aiCheckEnabled: Boolean)
     val choosePhotos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_PAGES)) { uris ->
         pages = (pages + uris.map(Uri::toString)).take(MAX_PAGES)
     }
+    val choosePdf = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) pages = (pages + uri.toString()).take(MAX_PAGES)
+    }
 
     var open by rememberSaveable { mutableStateOf(false) }
     if (!open) {
@@ -130,6 +133,14 @@ fun PaperCard(vm: StudyViewModel, sets: List<PaperSet>, aiCheckEnabled: Boolean)
                     choosePhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 },
             ) { Text(words.gallery) }
+            OutlinedButton(
+                enabled = pages.size < MAX_PAGES && !vm.busy,
+                modifier = Modifier.weight(1f).height(52.dp),
+                onClick = {
+                    Store.allowCameraFor(context)
+                    choosePdf.launch(arrayOf("application/pdf"))
+                },
+            ) { Text("PDF") }
         }
 
         if (pages.isNotEmpty()) {

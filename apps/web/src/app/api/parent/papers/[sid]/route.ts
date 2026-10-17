@@ -36,6 +36,7 @@ export async function GET(_request: Request, context: { params: Promise<{ sid: s
       autoApproved: submission.autoApproved,
       awardedMinutes: submission.awardedMinutes,
       imageCount: submission.imageCount,
+      imageTypes: submission.imageTypes,
       answers: answers.map((a) => ({
         questionId: a.questionId,
         text: a.text,

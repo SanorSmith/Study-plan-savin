@@ -37,6 +37,7 @@ data class PaperDetail(
     val autoApproved: Boolean,
     val awardedMinutes: Int,
     val imageCount: Int,
+    val imageTypes: List<String>,
     val answers: List<PaperAnswer>,
 )
 
@@ -99,3 +100,11 @@ data class KidDetail(
 )
 
 data class KidProfile(val name: String, val grade: Int, val minutesPerQuestion: Int, val dailyCapMinutes: Int, val uiStyle: String)
+
+/** A file picked for a worksheet: a photo (shrunk to a JPEG) or a PDF as it is. */
+class WorksheetFile(val bytes: ByteArray, val contentType: String)
+
+fun isPdf(mime: String?): Boolean = mime == "application/pdf"
+
+/** Photos and PDFs together must fit in the server's 4.5 MB upload limit. */
+fun uploadTooLarge(size: Int): Boolean = size > 4_000_000

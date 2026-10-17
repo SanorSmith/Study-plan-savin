@@ -32,10 +32,10 @@ export function PaperUpload({ kidId, setId }: { kidId: string; setId: string }) 
   return (
     <div className="space-y-3">
       <label className={labelText}>
-        Photos of the finished paper (up to 3 pages)
+        Photos or a PDF of the finished paper (up to 3 files, 4 MB in all)
         <input
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
           multiple
           disabled={busy}
           onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 3))}
