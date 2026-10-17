@@ -85,6 +85,9 @@ async function KidDetails({ params }: { params: Promise<{ id: string }> }) {
             <Link href={`/kids/${kid.id}/homework`} className={btn.secondary}>
               Homework and results
             </Link>
+            <Link href={`/kids/${kid.id}/performance`} className={btn.secondary}>
+              How is it going?
+            </Link>
           </>
         }
       />

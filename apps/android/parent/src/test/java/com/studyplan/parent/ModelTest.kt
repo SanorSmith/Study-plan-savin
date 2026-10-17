@@ -91,4 +91,21 @@ class ModelTest {
         assertEquals(300_000L, pollDelayMs(40))
         assertEquals(30_000L, pollDelayMs(-3))
     }
+
+    @Test
+    fun accuracyReadsAsGoodFairOrLow() {
+        assertEquals("good", levelOf(80))
+        assertEquals("good", levelOf(100))
+        assertEquals("fair", levelOf(79))
+        assertEquals("fair", levelOf(55))
+        assertEquals("low", levelOf(54))
+        assertEquals("none", levelOf(null))
+    }
+
+    @Test
+    fun periodsHaveNames() {
+        assertEquals("Last 7 days", periodLabel("week"))
+        assertEquals("Last 30 days", periodLabel("month"))
+        assertEquals("Last year", periodLabel("year"))
+    }
 }

@@ -23,6 +23,7 @@ sealed interface Screen {
     data class Results(val id: String) : Screen
     data class NewHomework(val id: String) : Screen
     data class EditHomework(val id: String, val setId: String) : Screen
+    data class Performance(val id: String) : Screen
 }
 
 class ParentViewModel(app: Application) : AndroidViewModel(app) {
@@ -45,6 +46,10 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var drafts by mutableStateOf<List<QuestionDraft>>(emptyList())
     var newCode by mutableStateOf<String?>(null)
+        private set
+    var performance by mutableStateOf<PerformanceData?>(null)
+        private set
+    var period by mutableStateOf("week")
         private set
     /** Bumped when the AI changes the ticks of the open paper, so the screen starts again from them. */
     var paperVersion by mutableStateOf(0)
@@ -158,6 +163,20 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
         run { t -> reloadKid(t) }
     }
 
+    fun openPerformance(id: String, which: String = period) {
+        clearMessages()
+        period = which
+        performance = null
+        screen = Screen.Performance(id)
+        run { t -> performance = ParentApi.performance(t, id, which) }
+    }
+
+    fun assess(id: String) = run { t ->
+        ParentApi.assess(t, id, period)
+        performance = ParentApi.performance(t, id, period)
+        message = "The AI assessment is ready."
+    }
+
     fun openEdit(id: String) {
         clearMessages()
         screen = Screen.EditKid(id)
@@ -180,6 +199,7 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
     fun back() {
         when (val s = screen) {
             is Screen.EditHomework -> openResults(s.id)
+            is Screen.Performance -> openKid(s.id)
             is Screen.Results, is Screen.EditKid, is Screen.NewHomework -> {
                 val id = when (s) {
                     is Screen.Results -> s.id

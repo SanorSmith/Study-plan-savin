@@ -83,6 +83,11 @@ fun KidScreen(vm: ParentViewModel, kidId: String) {
             }
         }
 
+        Section("How is it going?") {
+            Text("See where $name is strong and where they need practice, and ask the AI to assess it.", style = MaterialTheme.typography.bodyMedium)
+            Button(onClick = { vm.openPerformance(kidId) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Performance report") }
+        }
+
         Section("Homework") {
             val sets = detail?.homework.orEmpty()
             if (detail == null) Text("Loading…", style = MaterialTheme.typography.bodyMedium)

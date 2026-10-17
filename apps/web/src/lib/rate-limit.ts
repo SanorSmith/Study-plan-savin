@@ -37,3 +37,6 @@ export const tooManyRequests = (retryAfterSeconds: number) =>
 
 export const PAIR_LIMIT: Limit = { limit: 10, windowSeconds: 15 * 60 };
 export const EXTRACT_LIMIT: Limit = { limit: 20, windowSeconds: 60 * 60 };
+
+/** AI assessments and practice sets cost AI credit: a handful per parent per hour is plenty. */
+export const ASSESS_LIMIT: Limit = { limit: 10, windowSeconds: 60 * 60 };

@@ -108,3 +108,50 @@ fun isPdf(mime: String?): Boolean = mime == "application/pdf"
 
 /** Photos and PDFs together must fit in the server's 4.5 MB upload limit. */
 fun uploadTooLarge(size: Int): Boolean = size > 4_000_000
+
+data class SubjectStat(val subject: String, val questions: Int, val solved: Int, val failed: Int, val accuracy: Int?)
+
+data class Totals(
+    val questions: Int,
+    val solved: Int,
+    val failed: Int,
+    val attempts: Int,
+    val accuracy: Int?,
+    val firstTryRate: Int?,
+    val earnedMinutes: Int,
+    val papersChecked: Int,
+)
+
+data class TrendPoint(val label: String, val attempts: Int, val accuracy: Int?)
+
+data class HardQuestion(val text: String, val subject: String, val answerKey: String, val tries: Int, val solved: Boolean, val wrongAnswers: List<String>)
+
+data class StatsInfo(val period: String, val totals: Totals, val subjects: List<SubjectStat>, val trend: List<TrendPoint>, val hardest: List<HardQuestion>)
+
+/** What the AI said about a kid: where they are strong, where they struggle, and what to do. */
+data class AssessmentInfo(
+    val summary: String,
+    val strengths: List<Pair<String, String>>,
+    val weaknesses: List<Pair<String, String>>,
+    val recommendations: List<String>,
+    val encouragement: String,
+    val practiceFocus: List<String>,
+)
+
+data class ReportInfo(val id: String, val period: String, val createdAt: String, val accuracy: Int?, val assessment: AssessmentInfo?)
+
+data class PerformanceData(val stats: StatsInfo, val reports: List<ReportInfo>)
+
+/** How a percentage reads: good from 80, fair from 55, otherwise needs practice. */
+fun levelOf(accuracy: Int?): String = when {
+    accuracy == null -> "none"
+    accuracy >= 80 -> "good"
+    accuracy >= 55 -> "fair"
+    else -> "low"
+}
+
+fun periodLabel(period: String): String = when (period) {
+    "month" -> "Last 30 days"
+    "year" -> "Last year"
+    else -> "Last 7 days"
+}
