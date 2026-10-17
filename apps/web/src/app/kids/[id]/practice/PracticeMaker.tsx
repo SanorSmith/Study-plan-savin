@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { btn, Card, CardHeader, field, labelText } from "@/components/ui";
 import type { PracticeQuestion, PracticeSet } from "@/lib/practice-ai";
-import { makePractice, sendPracticeSet } from "./actions";
+import { makePractice, retryMissedQuestions, sendPracticeSet } from "./actions";
 
 /** Make practice questions with the AI, change them, then send them to the kid when the time feels right. */
 export function PracticeMaker({ kidId, kidName, period }: { kidId: string; kidName: string; period: string }) {
@@ -38,8 +38,28 @@ export function PracticeMaker({ kidId, kidName, period }: { kidId: string; kidNa
   const update = (i: number, patch: Partial<PracticeQuestion>) => setSet((s) => s && { ...s, questions: s.questions.map((q, j) => (j === i ? { ...q, ...patch } : q)) });
   const remove = (i: number) => setSet((s) => s && { ...s, questions: s.questions.filter((_, j) => j !== i) });
 
+  const [retry, setRetry] = useState<string | null>(null);
+  async function retryMissed() {
+    setBusy(true);
+    const r = await retryMissedQuestions(kidId);
+    setBusy(false);
+    setRetry(r.error ?? `Done. ${kidName} gets ${r.count} ${r.count === 1 ? "question" : "questions"} to try again, after the homework they already have.`);
+  }
+
   return (
     <div className="space-y-4">
+      <Card>
+        <CardHeader title="Another try at missed questions" description={`Questions ${kidName} ran out of tries on (last 14 days) go back to ${kidName} as a new set. The old tries stay in the results.`} />
+        <button type="button" onClick={retryMissed} disabled={busy} className={`${btn.secondary} disabled:opacity-50`}>
+          Let {kidName} try the missed ones again
+        </button>
+        {retry && (
+          <p role="status" className="mt-3 text-sm text-slate-700">
+            {retry}
+          </p>
+        )}
+      </Card>
+
       <Card>
         <CardHeader title="Make practice questions" description={`The AI looks at what ${kidName} found hard and makes new questions on the same skills. You check them before they go to ${kidName}.`} />
         <div className="flex flex-wrap items-end gap-3">

@@ -162,14 +162,7 @@ private fun HomeScreen(vm: StudyViewModel, s: KidState) {
 
     val q = s.question
     if (q == null) {
-        LookCard {
-            Text(
-                if (vm.feedback != null) copy.allDone else copy.noHomework,
-                style = MaterialTheme.typography.titleLarge,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        AllDoneCard(vm, s, copy)
     } else {
         QuestionCard(vm, s, q, copy)
     }
@@ -194,6 +187,35 @@ private fun MessageCard(message: KidMessage, copy: Copy, onRead: () -> Unit) {
         Button(onClick = onRead, colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.85f), contentColor = Color(0xFF1F1B3A))) {
             Text(copy.gotIt, fontWeight = FontWeight.Bold)
         }
+    }
+}
+
+/** Nothing left to answer: how it went, what was missed (with the right answers), and a way to look for new homework. */
+@Composable
+private fun AllDoneCard(vm: StudyViewModel, s: KidState, copy: Copy) {
+    val review = s.review
+    LookCard {
+        Text(
+            if (vm.feedback != null || (review?.total ?: 0) > 0) copy.allDone else copy.noHomework,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (review != null && review.total > 0) {
+            Text(copy.solvedOf(review.solved, review.total), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        }
+        if (review != null && review.missed.isNotEmpty()) {
+            InfoPill(copy.missedTitle)
+            review.missed.forEach { m ->
+                Column(Modifier.fillMaxWidth().background(Color(0xFFFFF1F2), RoundedCornerShape(LocalLook.current.corner * 0.6f)).padding(12.dp)) {
+                    Text(m.text, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = Color(0xFF1F1B3A))
+                    Text("${copy.rightAnswer}: ${m.answer}", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF1F1B3A))
+                }
+            }
+            Text(copy.askParent, style = MaterialTheme.typography.bodyMedium)
+        }
+        OutlinedButton(onClick = { vm.refresh() }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text(copy.checkNew) }
     }
 }
 
@@ -250,7 +272,7 @@ private fun StatusPill(text: String, container: Color, content: Color) {
 @Composable
 private fun QuestionCard(vm: StudyViewModel, s: KidState, q: Question, copy: Copy) {
     val look = LocalLook.current
-    var answer by remember(q.id) { mutableStateOf("") }
+    var answer by remember(q.id, vm.answersSent) { mutableStateOf("") } // empty again after every try
     LookCard {
         s.progress?.let { HomeworkProgress(it.done, it.total) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -21,6 +21,11 @@ data class Progress(val done: Int, val total: Int)
 /** A message from a parent: a checked paper, a note, or new practice. */
 data class KidMessage(val id: String, val kind: String, val body: String)
 
+/** How the last two weeks went, with the questions that ran out of tries and their right answers. */
+data class Missed(val text: String, val answer: String)
+
+data class Review(val total: Int, val solved: Int, val missed: List<Missed>)
+
 data class PaperSet(val id: String, val subject: String)
 
 data class KidState(
@@ -38,6 +43,7 @@ data class KidState(
     val uiStyle: String,
     val progress: Progress?,
     val messages: List<KidMessage>,
+    val review: Review?,
 )
 
 data class SyncData(val balanceMinutes: Int, val serverNow: String, val schedule: Schedule, val approvedUntil: String?)
@@ -130,6 +136,12 @@ object Api {
             messages = j.optJSONArray("messages")?.let { a ->
                 List(a.length()) { i -> a.getJSONObject(i).let { KidMessage(it.getString("id"), it.getString("kind"), it.getString("body")) } }
             } ?: emptyList(),
+            review = j.optJSONObject("review")?.let { r ->
+                Review(
+                    r.getInt("total"), r.getInt("solved"),
+                    r.getJSONArray("missed").let { a -> List(a.length()) { i -> a.getJSONObject(i).let { Missed(it.getString("text"), it.getString("answer")) } } },
+                )
+            },
         )
     }
 

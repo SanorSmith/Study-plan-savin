@@ -93,3 +93,31 @@ export async function runAutoPractice(now = new Date(), maxKids = 20, only?: str
   return result;
 }
 
+
+/**
+ * Gives the kid another go at the questions they ran out of tries on (last 14 days): the same questions, as a fresh set
+ * after the homework they already have. The old tries stay, so the results and reports keep the history.
+ * Returns how many questions were put back, or 0 if nothing was missed.
+ */
+export async function retryMissed(kidId: string): Promise<number> {
+  const result = await getDb().execute(sql`
+    select q.text, q.type, q.options, q.answer_key
+    from questions q
+    join homework_sets s on s.id = q.set_id
+    where s.kid_id = ${kidId}::uuid and s.status = 'assigned' and q.confirmed = true
+      and q.type in ('multiple_choice', 'numeric') and s.created_at > now() - interval '14 days'
+      and not exists (select 1 from attempts a where a.question_id = q.id and a.kid_id = ${kidId}::uuid and a.correct)
+      and (select count(*) from attempts a where a.question_id = q.id and a.kid_id = ${kidId}::uuid) >= 3
+    order by s.created_at desc, q.position
+    limit 20
+  `);
+  const rows = result.rows as { text: string; type: "multiple_choice" | "numeric"; options: string[] | null; answer_key: string }[];
+  if (rows.length === 0) return 0;
+  await assignHomeworkSet(
+    kidId,
+    { subject: "Try again", questions: rows.map((r) => ({ text: r.text, type: r.type, options: r.type === "multiple_choice" ? r.options : null, answerKey: r.answer_key })) },
+    "practice",
+  );
+  await addKidMessage(kidId, "practice", `Another try at ${rows.length} ${rows.length === 1 ? "question" : "questions"} you missed`);
+  return rows.length;
+}

@@ -7,7 +7,7 @@ import { KidInput, PinInput } from "@/lib/kid-input";
 import { addKidMessage, MAX_NOTE } from "@/lib/messages";
 import { APPROVAL_MINUTES, balanceOf, grantBonus, setApproval, withdrawMinutes } from "@/lib/kid-service";
 import { generatePairingCode, pairingExpiry } from "@/lib/pairing";
-import { AUTO_MODES } from "@/lib/practice-service";
+import { AUTO_MODES, retryMissed } from "@/lib/practice-service";
 import { getParentApp } from "@/lib/parent-device";
 import { kidDetail, ownedKidOf } from "@/lib/parent-kid";
 import { hashPin } from "@/lib/pin";
@@ -25,6 +25,7 @@ const Body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("add_rule"), mode: z.unknown(), days: z.unknown(), start: z.unknown(), end: z.unknown() }),
   z.object({ action: z.literal("delete_rule"), ruleId: z.uuid() }),
   z.object({ action: z.literal("pair_phone") }),
+  z.object({ action: z.literal("retry_missed") }),
   z.object({ action: z.literal("auto_practice"), mode: z.enum(AUTO_MODES), size: z.number().int().min(3).max(10) }),
   z.object({ action: z.literal("message"), text: z.string().trim().min(1).max(MAX_NOTE) }),
 ]);
@@ -92,6 +93,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     await db.insert(scheduleRules).values({ kidId: kid.id, ...rule.data });
   } else if (b.action === "delete_rule") {
     await db.delete(scheduleRules).where(and(eq(scheduleRules.id, b.ruleId), eq(scheduleRules.kidId, kid.id)));
+  } else if (b.action === "retry_missed") {
+    changed = await retryMissed(kid.id);
+    if (changed === 0) return Response.json({ error: "There are no missed questions to try again." }, { status: 409 });
   } else if (b.action === "auto_practice") {
     await db.update(kids).set({ autoPractice: b.mode, autoPracticeSize: b.size }).where(eq(kids.id, kid.id));
   } else if (b.action === "message") {

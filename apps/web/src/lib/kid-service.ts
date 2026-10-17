@@ -171,6 +171,28 @@ async function setProgress(kidId: string, setId: string) {
   return row ? { done: row.done, total: row.total } : null;
 }
 
+/**
+ * How the last two weeks of homework went, for the "all done" screen: how many questions were solved, and the ones that
+ * ran out of tries with the right answer, so the kid can learn from them. Only shown once nothing is left to answer.
+ */
+export async function reviewFor(kidId: string) {
+  const result = await getDb().execute(sql`
+    select q.text, q.answer_key,
+           exists (select 1 from attempts a where a.question_id = q.id and a.kid_id = ${kidId}::uuid and a.correct) as solved
+    from questions q
+    join homework_sets s on s.id = q.set_id
+    where s.kid_id = ${kidId}::uuid and s.status = 'assigned' and q.confirmed = true
+      and q.type in ('multiple_choice', 'numeric') and s.created_at > now() - interval '14 days'
+    order by s.created_at desc, q.position
+  `);
+  const rows = result.rows as { text: string; answer_key: string; solved: boolean }[];
+  return {
+    total: rows.length,
+    solved: rows.filter((r) => r.solved).length,
+    missed: rows.filter((r) => !r.solved).slice(0, 6).map((r) => ({ text: r.text, answer: r.answer_key })),
+  };
+}
+
 export async function kidState(kid: typeof kids.$inferSelect) {
   const [sync, earned, question] = await Promise.all([
     kidSync(kid.id),
@@ -186,6 +208,7 @@ export async function kidState(kid: typeof kids.$inferSelect) {
     grade: kid.grade,
     uiStyle: kid.uiStyle,
     progress: question ? await setProgress(kid.id, question.setId) : null,
+    review: question ? null : await reviewFor(kid.id),
     question: question ? { id: question.id, text: question.text, type: question.type, options: question.options, subject: question.subject } : null,
   };
 }

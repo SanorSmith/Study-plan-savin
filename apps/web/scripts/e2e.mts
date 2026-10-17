@@ -351,6 +351,27 @@ try {
       check("the AI makes practice questions", made.status === 200 && made.json.questions.length >= 1 && typeof made.json.subject === "string", made.json);
     }
 
+    // the "all done" screen and another try at missed questions
+    const [rset] = await sql`insert into homework_sets (kid_id, subject, status) values (${newId}, 'Review', 'assigned') returning id`;
+    const [rq1] = await sql`insert into questions (set_id, text, type, options, answer_key, confirmed, position) values (${rset.id}, 'What is 5+5?', 'numeric', null, '10', true, 0) returning id`;
+    await sql`insert into questions (set_id, text, type, options, answer_key, confirmed, position) values (${rset.id}, 'What is 9-4?', 'numeric', null, '5', true, 1)`;
+    // the kid still has some homework and practice from before: answer everything, getting only the first review question right
+    for (let guard = 0; guard < 20; guard++) {
+      const q = (await call("/api/kid/state", kidToken)).json.question;
+      if (!q) break;
+      await call("/api/kid/answer", kidToken, { questionId: q.id, answer: q.id === rq1.id ? "10" : "0" });
+    }
+    const done = await call("/api/kid/state", kidToken);
+    check("with nothing left the kid gets a review", done.json.question === null && done.json.review && done.json.review.total >= 2, done.json.review);
+    check("the review lists missed questions with the right answers", done.json.review.missed.length >= 1 && done.json.review.missed.every((m: any) => typeof m.answer === "string" && m.answer.length > 0), done.json.review);
+    check("the question they got right is not listed as missed", !done.json.review.missed.some((m: any) => m.text === "What is 5+5?"));
+    const retry = await act(newId, { action: "retry_missed" });
+    check("the parent lets the kid try the missed ones again", retry.status === 200 && retry.json.changedMinutes >= 1, retry);
+    const again = await call("/api/kid/state", kidToken);
+    check("the missed questions come back as a fresh set", again.json.question !== null && again.json.messages.some((m: any) => m.body.startsWith("Another try at")), again.json.question);
+    check("answering the fresh copy works", (await call("/api/kid/answer", kidToken, { questionId: again.json.question.id, answer: "5" })).status === 200);
+    await call("/api/kid/messages/read", kidToken, {});
+
     // a pending paper: review it and approve two of the questions
     const [sub] = await sql`insert into paper_submissions (kid_id, set_id, submitted_by, mode, ai_read) values (${kid.id}, ${set.id}, 'kid', 'parent', false) returning id`;
     for (const qid of ids) await sql`insert into paper_answers (submission_id, question_id, legible, ai_correct) values (${sub.id}, ${qid}, false, false)`;

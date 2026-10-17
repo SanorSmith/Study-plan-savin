@@ -96,6 +96,7 @@ fun KidScreen(vm: ParentViewModel, kidId: String) {
             sets.take(3).forEach { s -> Text("${s.subject}: ${s.solved} of ${s.total} solved", style = MaterialTheme.typography.bodyLarge) }
             Button(onClick = { vm.openNewHomework(kidId) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Add homework from a photo") }
             if (sets.isNotEmpty()) OutlinedButton(onClick = { vm.openResults(kidId) }, modifier = Modifier.fillMaxWidth()) { Text("See every question and try") }
+            if (sets.isNotEmpty()) OutlinedButton(onClick = { vm.retryMissed(kidId) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) { Text("Let $name try the missed questions again") }
         }
 
         var message by rememberSaveable { mutableStateOf("") }

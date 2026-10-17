@@ -331,6 +331,7 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
         paperVersion += 1
     }
 
+    fun retryMissed(kidId: String) = act("Done. {n} missed questions go back to the kid after their homework.") { ParentApi.retryMissed(it, kidId) }
     fun sendMessage(kidId: String, text: String) = act("Message sent.") { ParentApi.message(it, kidId, text) }
     fun bonus(kidId: String, minutes: Int) = act("Added ${minutesLabel(minutes)}.") { ParentApi.bonus(it, kidId, minutes) }
     fun withdraw(kidId: String, minutes: Int) = act("Took out {n} min.") { ParentApi.withdraw(it, kidId, minutes) }

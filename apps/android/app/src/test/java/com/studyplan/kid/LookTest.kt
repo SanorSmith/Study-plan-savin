@@ -74,4 +74,14 @@ class WordsAreShortTest {
             assertTrue(c.noHomework.length <= 30)
         }
     }
+
+    @Test
+    fun theAllDoneScreenSaysHowItWent() {
+        assertEquals("3 of 4 right ⭐", Copies.of(AgeBand.Little).solvedOf(3, 4))
+        assertEquals("3 of 4 solved", Copies.of(AgeBand.Teen).solvedOf(3, 4))
+        for (band in AgeBand.values()) {
+            val c = Copies.of(band)
+            assertTrue(c.askParent.isNotBlank() && c.rightAnswer.isNotBlank() && c.checkNew.isNotBlank() && c.missedTitle.isNotBlank())
+        }
+    }
 }

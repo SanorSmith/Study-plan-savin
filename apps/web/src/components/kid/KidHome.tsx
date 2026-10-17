@@ -23,6 +23,7 @@ export type KidViewState = {
   progress: { done: number; total: number } | null;
   schedule: { timezone: string; rules: ScheduleRule[] };
   messages?: { id: string; kind: string; body: string }[];
+  review?: { total: number; solved: number; missed: { text: string; answer: string }[] } | null;
 };
 
 export type AnswerOutcome = { correct: boolean; earnedMinutes: number; attemptsLeft: number };
@@ -37,6 +38,7 @@ export function KidHome({
   onAnswer,
   error,
   onReadMessages,
+  onRefresh,
   children,
 }: {
   state: KidViewState;
@@ -45,6 +47,7 @@ export function KidHome({
   onAnswer: (question: KidQuestion, value: string) => Promise<AnswerOutcome | null>;
   error?: string | null;
   onReadMessages?: (ids: string[]) => void;
+  onRefresh?: () => void;
   children?: ReactNode; // the "did it on paper?" card
 }) {
   const look = LOOKS[band];
@@ -175,7 +178,31 @@ export function KidHome({
             )}
           </section>
         ) : (
-          <section className={`${look.card} text-center text-lg`}>{answeredAny ? copy.allDone : copy.noHomework}</section>
+          <section className={`${look.card} space-y-4`}>
+            <p className="text-center text-xl font-bold">{answeredAny || (state.review?.total ?? 0) > 0 ? copy.allDone : copy.noHomework}</p>
+            {state.review && state.review.total > 0 && <p className="text-center text-lg font-semibold">{copy.solvedOf(state.review.solved, state.review.total)}</p>}
+            {state.review && state.review.missed.length > 0 && (
+              <div className="space-y-3 text-left">
+                <p className={look.pill + " inline-block"}>{copy.missedTitle}</p>
+                <ul className="space-y-2">
+                  {state.review.missed.map((m, i) => (
+                    <li key={i} className="rounded-2xl bg-rose-50 p-3 text-slate-900">
+                      <p className="font-semibold">{m.text}</p>
+                      <p className="text-sm">
+                        {copy.rightAnswer}: <b>{m.answer}</b>
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-sm opacity-80">{copy.askParent}</p>
+              </div>
+            )}
+            {onRefresh && (
+              <button type="button" onClick={onRefresh} className={`${look.secondary} w-full`}>
+                {copy.checkNew}
+              </button>
+            )}
+          </section>
         )}
 
         {children}
