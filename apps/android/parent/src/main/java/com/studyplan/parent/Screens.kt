@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun Page(content: @Composable () -> Unit) {
     Column(
-        Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
+        Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp), // extra room so the last buttons sit well above the gesture bar
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) { content() }
 }

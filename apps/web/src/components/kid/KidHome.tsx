@@ -96,7 +96,7 @@ export function KidHome({
   return (
     <div className={`min-h-screen ${look.page}`}>
       {celebrate && <Celebration emoji={celebrate.split(" ")} text={feedback?.text ?? ""} />}
-      <main className="mx-auto max-w-md space-y-5 px-4 py-6">
+      <main className="mx-auto max-w-md space-y-5 px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))]">
         <h1 className={look.heading}>{copy.hi(state.name)}</h1>
 
         {(state.messages ?? []).map((m) => (

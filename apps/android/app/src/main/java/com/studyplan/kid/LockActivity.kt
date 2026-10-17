@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -45,7 +46,7 @@ class LockActivity : ComponentActivity() {
             StudyTheme(band) {
                 PageBackground {
                     Column(
-                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp),
+                        Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(start = 28.dp, end = 28.dp, top = 28.dp, bottom = 48.dp),
                         verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
