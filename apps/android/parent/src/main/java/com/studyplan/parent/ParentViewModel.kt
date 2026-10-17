@@ -24,6 +24,7 @@ sealed interface Screen {
     data class NewHomework(val id: String) : Screen
     data class EditHomework(val id: String, val setId: String) : Screen
     data class Performance(val id: String) : Screen
+    data class Practice(val id: String) : Screen
 }
 
 class ParentViewModel(app: Application) : AndroidViewModel(app) {
@@ -49,6 +50,7 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var performance by mutableStateOf<PerformanceData?>(null)
         private set
+    var practiceSubject by mutableStateOf("")
     var period by mutableStateOf("week")
         private set
     /** Bumped when the AI changes the ticks of the open paper, so the screen starts again from them. */
@@ -144,6 +146,7 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
             is Screen.Results -> s.id
             is Screen.EditKid -> s.id
             is Screen.EditHomework -> s.id
+            is Screen.Practice -> s.id
             else -> return
         }
         kid = ParentApi.kid(t, id)
@@ -169,6 +172,35 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
         performance = null
         screen = Screen.Performance(id)
         run { t -> performance = ParentApi.performance(t, id, which) }
+    }
+
+    fun openPractice(id: String) {
+        clearMessages()
+        drafts = emptyList()
+        practiceSubject = ""
+        screen = Screen.Practice(id)
+        run { t -> reloadKid(t) }
+    }
+
+    fun makePractice(id: String, count: Int, focus: List<String>) = run { t ->
+        val made = ParentApi.practiceGenerate(t, id, period, count, focus)
+        practiceSubject = made.subject
+        drafts = made.questions
+    }
+
+    fun sendPractice(id: String) = run { t ->
+        ParentApi.practiceSend(t, id, practiceSubject, drafts)
+        drafts = emptyList()
+        message = "Practice sent. ${kidNameOf(id)} sees it after the homework they already have."
+        reloadKid(t)
+    }
+
+    private fun kidNameOf(id: String): String = kid?.takeIf { it.id == id }?.name ?: "The kid"
+
+    fun saveAutoPractice(id: String, mode: String, size: Int) = run { t ->
+        ParentApi.setAutoPractice(t, id, mode, size)
+        message = if (mode == "off") "Automatic practice is off." else "The AI will send practice: ${autoLabel(mode).lowercase()}."
+        reloadKid(t)
     }
 
     fun assess(id: String) = run { t ->
@@ -200,6 +232,7 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
         when (val s = screen) {
             is Screen.EditHomework -> openResults(s.id)
             is Screen.Performance -> openKid(s.id)
+            is Screen.Practice -> openPerformance(s.id)
             is Screen.Results, is Screen.EditKid, is Screen.NewHomework -> {
                 val id = when (s) {
                     is Screen.Results -> s.id

@@ -86,6 +86,7 @@ fun KidScreen(vm: ParentViewModel, kidId: String) {
         Section("How is it going?") {
             Text("See where $name is strong and where they need practice, and ask the AI to assess it.", style = MaterialTheme.typography.bodyMedium)
             Button(onClick = { vm.openPerformance(kidId) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Performance report") }
+            OutlinedButton(onClick = { vm.openPractice(kidId) }, modifier = Modifier.fillMaxWidth()) { Text("Practice questions") }
         }
 
         Section("Homework") {
@@ -311,7 +312,7 @@ fun ResultsScreen(vm: ParentViewModel, kidId: String) {
         detail?.homework?.forEach { s ->
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("${s.subject}: ${s.solved} of ${s.total} solved", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("${if (s.kind == "practice") "🎯 " else ""}${s.subject}: ${s.solved} of ${s.total} solved", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text("Earned ${minutesLabel(s.earnedMinutes)}", style = MaterialTheme.typography.bodyMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedButton(onClick = { vm.openEditHomework(kidId, s) }, enabled = !vm.busy, modifier = Modifier.weight(1f)) { Text("Edit") }
@@ -418,7 +419,7 @@ fun EditHomeworkScreen(vm: ParentViewModel, kidId: String, setId: String) {
 /** The editable questions plus a way to add one by hand. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DraftList(vm: ParentViewModel) {
+internal fun DraftList(vm: ParentViewModel) {
     vm.drafts.forEachIndexed { index, d ->
         DraftCard(index, d) { updated -> vm.drafts = vm.drafts.toMutableList().also { it[index] = updated } }
     }

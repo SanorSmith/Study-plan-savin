@@ -108,4 +108,21 @@ class ModelTest {
         assertEquals("Last 30 days", periodLabel("month"))
         assertEquals("Last year", periodLabel("year"))
     }
+
+    @Test
+    fun practiceTopicsAreSplitAndLimited() {
+        assertEquals(listOf("fractions", "subtraction"), parseFocus(" fractions, subtraction ,, "))
+        assertEquals(listOf("a", "b"), parseFocus("a\nb\na"))
+        assertEquals(5, parseFocus("1,2,3,4,5,6,7").size)
+        assertTrue(parseFocus("  ").isEmpty())
+    }
+
+    @Test
+    fun automaticPracticeHasNames() {
+        assertEquals("Every day", autoLabel("daily"))
+        assertEquals("Every other day", autoLabel("every_other_day"))
+        assertEquals("Once a week", autoLabel("weekly"))
+        assertEquals("Off", autoLabel("off"))
+        assertEquals(4, AUTO_MODES.size)
+    }
 }

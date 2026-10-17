@@ -170,12 +170,14 @@ object ParentApi {
             balanceMinutes = j.getInt("balanceMinutes"),
             earnedTodayMinutes = j.getInt("earnedTodayMinutes"),
             aiCheckEnabled = j.getBoolean("aiCheckEnabled"),
+            autoPractice = j.optString("autoPractice", "off"),
+            autoPracticeSize = j.optInt("autoPracticeSize", 5),
             approvedForSettings = j.getBoolean("approvedForSettings"),
             schedule = j.getJSONArray("schedule").objects().map { RuleInfo(it.getString("id"), it.getString("mode"), it.getInt("days"), it.getInt("startMinute"), it.getInt("endMinute")) },
             phones = j.getJSONArray("phones").objects().map { PhoneInfo(it.getString("id"), it.getString("platform"), it.getBoolean("paired"), if (it.isNull("code")) null else it.getString("code")) },
             homework = j.getJSONArray("homework").objects().map { h ->
                 HomeworkInfo(
-                    h.getString("id"), h.getString("subject"), h.getString("createdAt"), h.getInt("solved"), h.getInt("total"), h.getInt("earnedMinutes"),
+                    h.getString("id"), h.getString("subject"), h.optString("kind", "homework"), h.getString("createdAt"), h.getInt("solved"), h.getInt("total"), h.getInt("earnedMinutes"),
                     h.getJSONArray("questions").objects().map { q ->
                         QuestionResultInfo(
                             q.getString("id"), q.getString("type"),
@@ -293,6 +295,27 @@ object ParentApi {
     /** "Assess performance with AI": the server reads the numbers and saves the assessment. */
     suspend fun assess(token: String, kidId: String, period: String) {
         raw("POST", "/api/parent/kids/$kidId/performance", token, "application/json", JSONObject().put("period", period).toString().toByteArray(), 120_000)
+    }
+
+    /** The AI makes practice questions from what the kid found hard. Nothing is sent to the kid yet. */
+    suspend fun practiceGenerate(token: String, kidId: String, period: String, count: Int, focus: List<String>): PracticeDraft {
+        val body = JSONObject().put("action", "generate").put("period", period).put("count", count).put("focus", JSONArray(focus))
+        val j = raw("POST", "/api/parent/kids/$kidId/practice", token, "application/json", body.toString().toByteArray(), 120_000)
+        return PracticeDraft(
+            j.getString("subject"),
+            j.getJSONArray("questions").objects().map {
+                QuestionDraft(it.getString("text"), it.getString("type"), it.optJSONArray("options")?.let { a -> List(a.length()) { i -> a.getString(i) } }, it.getString("answerKey"))
+            },
+        )
+    }
+
+    suspend fun practiceSend(token: String, kidId: String, subject: String, drafts: List<QuestionDraft>) {
+        val j = homeworkJson(subject, drafts).put("action", "send")
+        call("POST", "/api/parent/kids/$kidId/practice", token, j)
+    }
+
+    suspend fun setAutoPractice(token: String, kidId: String, mode: String, size: Int) {
+        kidAction(token, kidId, JSONObject().put("action", "auto_practice").put("mode", mode).put("size", size))
     }
 
     private fun JSONArray.objects(): List<JSONObject> = List(length()) { getJSONObject(it) }

@@ -17,6 +17,7 @@ export type QuestionResult = {
 export type SetResult = {
   id: string;
   subject: string;
+  kind: string;
   createdAt: Date;
   questions: QuestionResult[];
   solved: number;
@@ -85,6 +86,7 @@ export async function homeworkResults(kidId: string): Promise<SetResult[]> {
     return {
       id: set.id,
       subject: set.subject,
+      kind: set.kind,
       createdAt: set.createdAt,
       questions: results,
       solved: results.filter((r) => r.status === "solved").length,

@@ -29,6 +29,9 @@ export async function kidDetail(kid: typeof kids.$inferSelect) {
     balanceMinutes: balance,
     earnedTodayMinutes: earned,
     aiCheckEnabled: kid.aiCheckEnabled,
+    autoPractice: kid.autoPractice,
+    autoPracticeSize: kid.autoPracticeSize,
+    lastPracticeAt: kid.lastPracticeAt ? kid.lastPracticeAt.toISOString() : null,
     approvedForSettings: !!kid.settingsApprovedUntil && kid.settingsApprovedUntil.getTime() > now.getTime(),
     schedule: rules.map((r) => ({ id: r.id, mode: r.mode, days: r.days, startMinute: r.startMinute, endMinute: r.endMinute })),
     phones: phones.map((d) => ({
@@ -41,6 +44,7 @@ export async function kidDetail(kid: typeof kids.$inferSelect) {
     homework: sets.map((s) => ({
       id: s.id,
       subject: s.subject,
+      kind: s.kind,
       createdAt: s.createdAt.toISOString(),
       solved: s.solved,
       total: s.questions.length,
@@ -60,9 +64,9 @@ export async function kidDetail(kid: typeof kids.$inferSelect) {
 }
 
 /** Saves a parent-confirmed answer key and assigns the set to the kid. */
-export async function assignHomeworkSet(kidId: string, input: z.infer<typeof HomeworkInput>) {
+export async function assignHomeworkSet(kidId: string, input: z.infer<typeof HomeworkInput>, kind: "homework" | "practice" = "homework") {
   const db = getDb();
-  const [set] = await db.insert(homeworkSets).values({ kidId, subject: input.subject, status: "assigned" }).returning({ id: homeworkSets.id });
+  const [set] = await db.insert(homeworkSets).values({ kidId, subject: input.subject, status: "assigned", kind }).returning({ id: homeworkSets.id });
   await db.insert(questions).values(
     input.questions.map((q, position) => ({
       setId: set.id,

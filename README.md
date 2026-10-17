@@ -36,6 +36,14 @@ Parents can use the website as an app, or install the Android parent app.
 Both fit a phone screen and can be added to the home screen as their own apps (Android Chrome: Install app or Add to Home screen; iPhone Safari: Share, then Add to Home Screen). The kid app has its own name and icon.
 The kid web app does the homework, the paper photos and the age looks, but a web page cannot lock other apps or count screen time, so the rules are only enforced by the Android kid app.
 
+## More for parents
+
+- **PDF as well as photos.** Kids and parents can upload a PDF of a finished paper or a worksheet, and the AI reads it like a photo.
+- **Sound alerts.** The website rings when a kid sends a paper (and, with notifications turned on in the dashboard, also when it is closed). The Android parent app has instant sound alerts.
+- **Reply to the kid.** When you check a paper, the kid is told the score, the minutes and your message. You can also send a note any time.
+- **How is it going?** A report per kid for the last week, month or year: right first time, by subject, over time and the hardest questions. **Assess performance with AI** writes the strengths and what needs practice, and keeps earlier assessments.
+- **Practice questions.** The AI makes new questions like the ones the kid found hard. You check them and send them when you like, or let the AI add a short set between the daily homework (every day, every other day or weekly).
+
 ## What the app does
 
 - **Earn:** answer questions in the app (3 tries each, a retry earns half) or photograph a finished paper. A parent can let the AI check papers and credit minutes at once, or check them by hand.
