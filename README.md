@@ -42,7 +42,7 @@ The kid web app does the homework, the paper photos and the age looks, but a web
 - **Sound alerts.** The website rings when a kid sends a paper (and, with notifications turned on in the dashboard, also when it is closed). The Android parent app has instant sound alerts.
 - **Reply to the kid.** When you check a paper, the kid is told the score, the minutes and your message. You can also send a note any time.
 - **How is it going?** A report per kid for the last week, month or year: right first time, by subject, over time and the hardest questions. **Assess performance with AI** writes the strengths and what needs practice, and keeps earlier assessments.
-- **Practice questions.** The AI makes new questions like the ones the kid found hard. You check them and send them when you like, or let the AI add a short set between the daily homework (every day, every other day or weekly).
+- **Practice questions.** The AI makes new questions like the ones the kid found hard. You check them and send them when you like, or let the AI add a short set between the daily homework (every day, every other day or weekly). You can **pull a practice set back** at any time (with a confirmation): the kid stops seeing it, nothing is deleted, and you can send it again.
 
 ## What the app does
 

@@ -8,7 +8,10 @@ import { btn, Card, CardHeader, field, labelText, PageHeader } from "@/component
 import { PageLoading, ParentShell } from "@/components/ParentShell";
 import { requireParent } from "@/lib/auth";
 import { PERIODS, type Period } from "@/lib/performance";
-import { setAutoPractice } from "./actions";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { practiceSets } from "@/lib/practice-service";
+import { Badge } from "@/components/ui";
+import { changePracticeSet, setAutoPractice } from "./actions";
 import { PracticeMaker } from "./PracticeMaker";
 
 const MODES = [
@@ -25,6 +28,7 @@ async function Practice({ params, searchParams }: { params: Promise<{ id: string
   const parent = await requireParent();
   const [kid] = await getDb().select().from(kids).where(and(eq(kids.id, id), eq(kids.parentId, parent.id)));
   if (!kid) notFound();
+  const sent = await practiceSets(kid.id);
 
   return (
     <ParentShell width="max-w-3xl">
@@ -39,6 +43,37 @@ async function Practice({ params, searchParams }: { params: Promise<{ id: string
       />
 
       <PracticeMaker kidId={kid.id} kidName={kid.name} period={period} />
+
+      <Card className="mt-6">
+        <CardHeader title={`Practice sent to ${kid.name}`} description={`You can pull a practice set back at any time. ${kid.name} stops seeing its questions. Nothing is deleted: the tries and minutes already earned stay, and you can send it again.`} />
+        {sent.length === 0 ? (
+          <p className="text-sm text-slate-600">No practice sent yet.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {sent.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="font-medium">
+                    {p.subject} {p.status === "withdrawn" ? <Badge tone="warn">Pulled back</Badge> : <Badge tone="good">With {kid.name}</Badge>}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {p.solved} of {p.total} solved · sent {p.createdAt.slice(0, 10)}
+                  </p>
+                </div>
+                <form action={changePracticeSet.bind(null, kid.id, p.id, p.status === "withdrawn" ? "assigned" : "withdrawn")}>
+                  {p.status === "withdrawn" ? (
+                    <button className={btn.secondary}>Send it again</button>
+                  ) : (
+                    <ConfirmButton className={btn.secondary} message={`Pull back "${p.subject}"? ${kid.name} will no longer see these questions. You can send it again later.`}>
+                      Pull back
+                    </ConfirmButton>
+                  )}
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <Card className="mt-6">
         <CardHeader

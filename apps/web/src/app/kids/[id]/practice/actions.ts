@@ -8,7 +8,7 @@ import { requireParent } from "@/lib/auth";
 import { HomeworkInput } from "@/lib/homework-input";
 import { PERIODS, statsFor, type Period } from "@/lib/performance";
 import { generatePractice, PracticeError, type PracticeSet } from "@/lib/practice-ai";
-import { AUTO_MODES, retryMissed, sendPractice, type AutoMode } from "@/lib/practice-service";
+import { AUTO_MODES, retryMissed, sendPractice, setPracticeStatus, type AutoMode } from "@/lib/practice-service";
 import { ASSESS_LIMIT, rateLimit } from "@/lib/rate-limit";
 
 async function ownedKid(kidId: string) {
@@ -63,4 +63,12 @@ export async function retryMissedQuestions(kidId: string): Promise<{ error?: str
   if (count === 0) return { error: "There are no missed questions to try again." };
   revalidatePath(`/kids/${kidId}`);
   return { count };
+}
+
+/** Pulls a practice set back from the kid (nothing is deleted), or puts it back. */
+export async function changePracticeSet(kidId: string, setId: string, status: "assigned" | "withdrawn") {
+  const { kid } = await ownedKid(kidId);
+  await setPracticeStatus(kid.id, setId, status);
+  revalidatePath(`/kids/${kidId}/practice`);
+  revalidatePath(`/kids/${kidId}`);
 }

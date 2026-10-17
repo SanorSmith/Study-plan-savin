@@ -80,6 +80,8 @@ object ParentApi {
     suspend fun emptyBank(token: String, kidId: String) = kidAction(token, kidId, JSONObject().put("action", "reset"))
     suspend fun setAi(token: String, kidId: String, enabled: Boolean) = kidAction(token, kidId, JSONObject().put("action", "ai").put("enabled", enabled))
     suspend fun retryMissed(token: String, kidId: String) = kidAction(token, kidId, JSONObject().put("action", "retry_missed"))
+    suspend fun pullBackPractice(token: String, kidId: String, setId: String, pullBack: Boolean) =
+        kidAction(token, kidId, JSONObject().put("action", if (pullBack) "withdraw_practice" else "restore_practice").put("setId", setId))
     suspend fun message(token: String, kidId: String, text: String) = kidAction(token, kidId, JSONObject().put("action", "message").put("text", text.trim()))
     suspend fun allowSettings(token: String, kidId: String, allow: Boolean) =
         kidAction(token, kidId, JSONObject().put("action", if (allow) "allow_settings" else "block_settings"))
@@ -176,6 +178,9 @@ object ParentApi {
             approvedForSettings = j.getBoolean("approvedForSettings"),
             schedule = j.getJSONArray("schedule").objects().map { RuleInfo(it.getString("id"), it.getString("mode"), it.getInt("days"), it.getInt("startMinute"), it.getInt("endMinute")) },
             phones = j.getJSONArray("phones").objects().map { PhoneInfo(it.getString("id"), it.getString("platform"), it.getBoolean("paired"), if (it.isNull("code")) null else it.getString("code")) },
+            practice = j.optJSONArray("practice")?.objects()?.map {
+                PracticeSetInfo(it.getString("id"), it.getString("subject"), it.getString("status") == "withdrawn", it.getInt("total"), it.getInt("solved"), it.getString("createdAt"))
+            } ?: emptyList(),
             homework = j.getJSONArray("homework").objects().map { h ->
                 HomeworkInfo(
                     h.getString("id"), h.getString("subject"), h.optString("kind", "homework"), h.getString("createdAt"), h.getInt("solved"), h.getInt("total"), h.getInt("earnedMinutes"),

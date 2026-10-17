@@ -339,6 +339,19 @@ try {
     const pd = await call(`/api/parent/kids/${newId}`, ptoken);
     check("the set is marked as practice in the results", pd.json.homework.some((h: any) => h.kind === "practice" && h.subject === "Practice: sums"), pd.json.homework);
     await call("/api/kid/messages/read", kidToken, {});
+    // pulling a practice set back, and sending it again
+    check("the detail lists the practice set as with the kid", pd.json.practice.some((x: any) => x.id === sentSet.json.id && x.status === "assigned" && x.total === 2), pd.json.practice);
+    const hwId = (await call(`/api/parent/kids/${newId}`, ptoken)).json.homework.find((h: any) => h.kind !== "practice")?.id ?? crypto.randomUUID();
+    check("ordinary homework cannot be pulled back this way", (await act(newId, { action: "withdraw_practice", setId: hwId })).status === 409);
+    check("an unknown set is refused", (await act(newId, { action: "withdraw_practice", setId: crypto.randomUUID() })).status === 409);
+    check("the parent pulls the practice back", (await act(newId, { action: "withdraw_practice", setId: sentSet.json.id })).status === 200);
+    const wdKid = await call("/api/kid/state", kidToken);
+    check("the kid no longer has the practice set", !wdKid.json.paperSets.some((x: any) => x.subject === "Practice: sums") && wdKid.json.question?.subject !== "Practice: sums");
+    check("the set is listed as pulled back, with nothing deleted", (await call(`/api/parent/kids/${newId}`, ptoken)).json.practice.some((x: any) => x.id === sentSet.json.id && x.status === "withdrawn" && x.total === 2));
+    check("pulling it back twice is refused", (await act(newId, { action: "withdraw_practice", setId: sentSet.json.id })).status === 409);
+    check("the parent sends it again", (await act(newId, { action: "restore_practice", setId: sentSet.json.id })).status === 200);
+    check("the kid has it again", (await call("/api/kid/state", kidToken)).json.paperSets.some((x: any) => x.subject === "Practice: sums"));
+    check("another parent cannot pull it back", (await call(`/api/parent/kids/${newId}`, "e2e-not-a-token", { action: "withdraw_practice", setId: sentSet.json.id })).status === 401);
     check("automatic practice can be switched on", (await act(newId, { action: "auto_practice", mode: "daily", size: 4 })).status === 200);
     const ad = await call(`/api/parent/kids/${newId}`, ptoken);
     check("detail shows the automatic practice setting", ad.json.autoPractice === "daily" && ad.json.autoPracticeSize === 4, ad.json);
