@@ -102,6 +102,7 @@ async function nextQuestion(kidId: string) {
     .select({
       id: questions.id,
       label: questions.label,
+      position: questions.position,
       text: questions.text,
       type: questions.type,
       options: questions.options,
@@ -210,7 +211,7 @@ export async function kidState(kid: typeof kids.$inferSelect) {
     uiStyle: kid.uiStyle,
     progress: question ? await setProgress(kid.id, question.setId) : null,
     review: question ? null : await reviewFor(kid.id),
-    question: question ? { id: question.id, label: question.label, text: question.text, type: question.type, options: question.options, subject: question.subject } : null,
+    question: question ? { id: question.id, label: question.label, position: question.position + 1, text: question.text, type: question.type, options: question.options, subject: question.subject } : null,
   };
 }
 

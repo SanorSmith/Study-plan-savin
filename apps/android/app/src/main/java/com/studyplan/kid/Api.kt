@@ -15,6 +15,7 @@ data class Question(
     val type: String,
     val options: List<String>?,
     val subject: String,
+    val position: Int = 1, // its place in the homework, starting at 1
 )
 
 data class Progress(val done: Int, val total: Int)
@@ -120,6 +121,7 @@ object Api {
                 Question(
                     id = it.getString("id"),
                     label = if (it.isNull("label")) null else it.getString("label"),
+                    position = it.optInt("position", 1),
                     text = it.getString("text"),
                     type = it.getString("type"),
                     options = it.optJSONArray("options")?.let { a -> List(a.length()) { i -> a.getString(i) } },
@@ -167,6 +169,10 @@ object Api {
             if (j.isNull("approvedUntil")) null else j.getString("approvedUntil"),
         )
     }
+
+    /** A hint on the method for one question. Never the answer. */
+    suspend fun hint(token: String, questionId: String): String =
+        call("GET", "/api/kid/hint?questionId=$questionId", token, readTimeoutMs = 40_000).getString("hint")
 
     /** New homework, practice and messages from a parent. Needs no PIN. */
     suspend fun news(token: String): List<News> {
