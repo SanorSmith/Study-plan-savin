@@ -87,6 +87,8 @@ export const questions = pgTable("questions", {
   position: integer("position").notNull().default(0),
   // The number printed next to the question on the worksheet (3, 4b, Exercise 2). The app keeps its own order in `position`.
   label: text("label"),
+  // A short nudge on the method, written by the AI the first time a kid asks. It never gives the answer away.
+  hint: text("hint"),
 });
 
 export const attempts = pgTable(

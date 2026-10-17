@@ -63,6 +63,6 @@ describe.skipIf(!process.env.DATABASE_URL)("kid state for the app's look and pro
 
     const open = await setup(5);
     const withQuestion = await kidState(open.kid);
-    expect(Object.keys(withQuestion.question ?? {}).sort()).toEqual(["id", "label", "options", "subject", "text", "type"]);
+    expect(Object.keys(withQuestion.question ?? {}).sort()).toEqual(["id", "label", "options", "position", "subject", "text", "type"]);
   });
 });

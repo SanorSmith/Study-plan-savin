@@ -3,12 +3,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { AgeBand } from "@/lib/age-band";
 import { activeWindow, type ScheduleRule } from "@/lib/schedule";
+import { questionTitle } from "@/lib/question-title";
 import { COPY, LOOKS } from "./looks";
 import { Celebration, Keypad, Progress, TimeGauge } from "./parts";
 
 export type KidQuestion = {
   id: string;
   label?: string | null;
+  position?: number;
   text: string;
   type: "multiple_choice" | "numeric" | "short_text";
   options: string[] | null;
@@ -135,10 +137,12 @@ export function KidHome({
             {state.progress && <Progress done={state.progress.done} total={state.progress.total} band={band} look={look} />}
             <div className="flex flex-wrap gap-2">
               <span className={look.pill}>{q.subject}</span>
-              {q.label && <span className={look.pill}>No. {q.label}</span>}
               <span className={look.pill}>+{Math.min(state.minutesPerQuestion, state.earnableTodayMinutes)} {copy.minutes}</span>
             </div>
+            <p className="text-sm font-extrabold uppercase tracking-wide opacity-70">📄 {questionTitle(q.label, q.position ?? 1)}</p>
             <p className={look.question}>{q.text}</p>
+            {q.type === "numeric" && <p className="rounded-2xl bg-amber-100 px-4 py-2.5 text-base font-semibold text-amber-900">✏️ Work it out in your book first, then type the answer.</p>}
+            <Hint key={q.id} questionId={q.id} />
 
             {q.type === "multiple_choice" && q.options ? (
               <div className="space-y-3">
@@ -209,6 +213,39 @@ export function KidHome({
 
         {children}
       </main>
+    </div>
+  );
+}
+
+/** A "Need a hint?" button. The AI explains the method, never the answer. */
+function Hint({ questionId }: { questionId: string }) {
+  const [state, setState] = useState<{ status: "idle" | "loading" | "failed" } | { status: "shown"; text: string }>({ status: "idle" });
+
+  async function ask() {
+    setState({ status: "loading" });
+    try {
+      const res = await fetch(`/api/kid/hint?questionId=${questionId}`, { cache: "no-store" });
+      if (!res.ok) return setState({ status: "failed" });
+      const { hint } = (await res.json()) as { hint: string };
+      setState({ status: "shown", text: hint });
+    } catch {
+      setState({ status: "failed" });
+    }
+  }
+
+  if (state.status === "shown") {
+    return (
+      <p role="note" className="rounded-2xl bg-sky-100 px-4 py-3 text-base font-medium leading-relaxed text-sky-950">
+        💡 {state.text}
+      </p>
+    );
+  }
+  return (
+    <div>
+      <button type="button" onClick={() => void ask()} disabled={state.status === "loading"} className="rounded-full bg-sky-100 px-4 py-2 text-base font-bold text-sky-800 active:scale-95 disabled:opacity-60">
+        {state.status === "loading" ? "Thinking…" : "💡 Need a hint?"}
+      </button>
+      {state.status === "failed" && <p className="mt-2 text-sm text-rose-700">No hint right now. Try again in a moment.</p>}
     </div>
   );
 }

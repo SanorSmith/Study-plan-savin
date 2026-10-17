@@ -282,10 +282,20 @@ private fun QuestionCard(vm: StudyViewModel, s: KidState, q: Question, copy: Cop
         // Wraps to a second line instead of running off the screen when the subject name is long.
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             InfoPill(q.subject)
-            if (!q.label.isNullOrBlank()) InfoPill("No. ${q.label}")
             InfoPill("+${minOf(s.minutesPerQuestion, s.earnableTodayMinutes)} ${copy.minutes}")
         }
+        Text("📄 ${questionTitle(q.label, q.position)}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
         Text(q.text, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        if (q.type == "numeric") {
+            Text(
+                "✏️ Work it out in your book first, then type the answer.",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF78350F),
+                modifier = Modifier.fillMaxWidth().background(Color(0xFFFEF3C7), RoundedCornerShape(16.dp)).padding(12.dp),
+            )
+        }
+        HintBox(q.id)
 
         when {
             q.type == "multiple_choice" && q.options != null -> AnswerOptions(q.options, enabled = !vm.busy) { vm.answer(q, it) }
