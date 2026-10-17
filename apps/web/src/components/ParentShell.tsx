@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOut } from "@/app/login/actions";
+import { LiveAlerts } from "@/components/LiveAlerts";
 import { btn } from "@/components/ui";
 
 /** Header and page container for every signed-in parent page. */
 export function ParentShell({ children, width = "max-w-5xl" }: { children: ReactNode; width?: string }) {
   return (
     <div className="min-h-screen">
+      <LiveAlerts />
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href="/dashboard" className="text-base font-semibold tracking-tight text-slate-900">

@@ -4,6 +4,11 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Tells the parent when a paper is waiting for review. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Instant alerts: a small always-on notice and a check every half minute for new papers. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- The camera and photo pickers, for photographing a worksheet. -->
     <queries>
@@ -29,6 +34,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".AlertService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Tells the parent right away, with a sound, when a child sends homework to check." />
+        </service>
+
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Gives the camera app a place to save the photo of a worksheet. -->
         <provider

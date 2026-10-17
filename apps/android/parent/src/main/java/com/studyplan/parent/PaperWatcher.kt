@@ -19,7 +19,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
 
-private const val CHANNEL = "papers"
+private const val CHANNEL = "papers_loud"
 
 /** Checks about every 15 minutes whether a kid sent a paper, and says so in a notification. */
 class PaperCheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
@@ -44,7 +44,14 @@ object Notifier {
     private fun ensureChannel(c: Context) {
         if (Build.VERSION.SDK_INT < 26) return
         val manager = c.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Papers to check", NotificationManager.IMPORTANCE_DEFAULT))
+        val sound = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
+        val channel = NotificationChannel(CHANNEL, "Papers to check", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "A sound and a banner when a child sends homework to check"
+            setSound(sound, android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION).setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 250, 150, 250)
+        }
+        manager.createNotificationChannel(channel)
     }
 
     fun allowed(c: Context): Boolean =
@@ -64,6 +71,9 @@ object Notifier {
             .setContentText(text)
             .setContentIntent(open)
             .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .build()
         c.getSystemService(NotificationManager::class.java).notify(1, n)
     }

@@ -14,6 +14,13 @@ object Store {
         }.apply()
     }
 
+    /** Instant alerts (a check every half minute, with a small always-on notice). On by default once paired. */
+    fun instantAlerts(c: Context): Boolean = prefs(c).getBoolean("instant", true)
+
+    fun setInstantAlerts(c: Context, on: Boolean) {
+        prefs(c).edit().putBoolean("instant", on).apply()
+    }
+
     fun seenPapers(c: Context): Set<String> = prefs(c).getStringSet("seen", emptySet()) ?: emptySet()
 
     fun setSeenPapers(c: Context, ids: Set<String>) {

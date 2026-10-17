@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  jsonb,
   index,
   integer,
   pgTable,
@@ -40,6 +41,10 @@ export const kids = pgTable("kids", {
   aiCheckEnabled: boolean("ai_check_enabled").notNull().default(false),
   // The look of the kid's app: auto (from the grade), little, middle or teen.
   uiStyle: text("ui_style").notNull().default("auto"),
+  // AI practice questions sent between the daily homework: off, daily, every_other_day or weekly.
+  autoPractice: text("auto_practice").notNull().default("off"),
+  autoPracticeSize: integer("auto_practice_size").notNull().default(5),
+  lastPracticeAt: timestamp("last_practice_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -65,6 +70,7 @@ export const homeworkSets = pgTable("homework_sets", {
     .references(() => kids.id, { onDelete: "cascade" }),
   subject: text("subject").notNull(),
   status: text("status").notNull().default("draft"), // draft | assigned
+  kind: text("kind").notNull().default("homework"), // homework | practice (AI made, similar to what the kid got wrong)
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -237,4 +243,41 @@ export const kidMessages = pgTable(
     readAt: timestamp("read_at"),
   },
   (t) => [index("kid_messages_by_kid").on(t.kidId, t.createdAt)],
+);
+
+/** A browser or installed web app that wants a notification when a kid sends a paper (Web Push). */
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  parentId: uuid("parent_id")
+    .notNull()
+    .references(() => parents.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/** Secrets the app makes for itself (the Web Push signing keys), so nothing has to be set by hand. */
+export const appSecrets = pgTable("app_secrets", {
+  name: text("name").primaryKey(),
+  value: text("value").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/** An AI assessment of how a kid is doing over a week, a month or a year, kept so the parent can look back. */
+export const performanceReports = pgTable(
+  "performance_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kidId: uuid("kid_id")
+      .notNull()
+      .references(() => kids.id, { onDelete: "cascade" }),
+    period: text("period").notNull(), // week | month | year
+    rangeStart: timestamp("range_start").notNull(),
+    rangeEnd: timestamp("range_end").notNull(),
+    stats: jsonb("stats").notNull(),
+    assessment: jsonb("assessment"), // the AI's reading; null if the AI was not asked
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("performance_reports_by_kid").on(t.kidId, t.createdAt)],
 );

@@ -296,6 +296,18 @@ try {
     check("the kid is told it was sent back", mst.json.messages[0]?.body === "Science: your parent sent the paper back. Please redo it", mst.json.messages);
     await call("/api/kid/messages/read", kidToken, {});
 
+    // notifications: the lists the website and the app ask, and the Web Push endpoints
+    const pend = await call("/api/parent/pending", ptoken);
+    check("the app can ask what is waiting", pend.status === 200 && Array.isArray(pend.json.papers) && pend.json.papers.length >= 1, pend.json);
+    check("pending needs a token", (await call("/api/parent/pending", null)).status === 401);
+    check("the website list needs a sign-in", (await call("/api/web/pending", null)).status === 401);
+    check("subscribing needs a sign-in", (await call("/api/push/subscribe", null, { endpoint: "https://example.com/x", keys: { p256dh: "x".repeat(20), auth: "y".repeat(20) } })).status === 401);
+    check("the test notification needs a sign-in", (await call("/api/push/test", null, {})).status === 401);
+    const key1 = await call("/api/push/key", null);
+    const key2 = await call("/api/push/key", null);
+    check("the public push key is served and stable", key1.status === 200 && key1.json.publicKey.length > 60 && key1.json.publicKey === key2.json.publicKey, key1.json);
+    check("the service worker is served", (await fetch(`${BASE}/sw.js`)).status === 200);
+
     // a pending paper: review it and approve two of the questions
     const [sub] = await sql`insert into paper_submissions (kid_id, set_id, submitted_by, mode, ai_read) values (${kid.id}, ${set.id}, 'kid', 'parent', false) returning id`;
     for (const qid of ids) await sql`insert into paper_answers (submission_id, question_id, legible, ai_correct) values (${sub.id}, ${qid}, false, false)`;

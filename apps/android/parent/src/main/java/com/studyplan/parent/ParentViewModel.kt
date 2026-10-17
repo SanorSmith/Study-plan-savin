@@ -50,6 +50,15 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
     var paperVersion by mutableStateOf(0)
         private set
 
+    var instantAlerts by mutableStateOf(Store.instantAlerts(app))
+        private set
+
+    fun turnInstantAlerts(on: Boolean) {
+        Store.setInstantAlerts(getApplication(), on)
+        instantAlerts = on
+        if (on) AlertService.start(getApplication()) else AlertService.stop(getApplication())
+    }
+
     fun clearMessages() {
         message = null
         error = null
@@ -101,6 +110,7 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun signOut(why: String? = null) {
+        AlertService.stop(getApplication())
         Store.setToken(getApplication(), null)
         Notifier.cancel(getApplication())
         token = null
