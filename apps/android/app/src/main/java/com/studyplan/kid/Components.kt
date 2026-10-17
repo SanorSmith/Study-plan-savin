@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -77,14 +78,14 @@ fun LookCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
 
 /** The big colored card with the time ring: a bright gradient with white text. */
 @Composable
-fun HeroCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun HeroCard(modifier: Modifier = Modifier, compact: Boolean = false, content: @Composable () -> Unit) {
     val look = LocalLook.current
     Box(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(look.corner * 1.2f))
             .background(Brush.linearGradient(look.hero))
-            .padding(20.dp),
+            .padding(if (compact) 12.dp else 20.dp),
     ) {
         CompositionLocalProvider(LocalContentColor provides Color.White) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) { content() }
@@ -102,24 +103,24 @@ fun InfoPill(text: String) {
 
 /** A ring showing how many minutes are left (a full ring is an hour or more). */
 @Composable
-fun TimeGauge(minutes: Int, unit: String, showEmoji: Boolean) {
+fun TimeGauge(minutes: Int, unit: String, showEmoji: Boolean, compact: Boolean = false) {
     val progress by animateFloatAsState((minutes / 60f).coerceIn(0f, 1f), animationSpec = tween(700), label = "gauge")
     val track = Color.White.copy(alpha = 0.3f)
     val arc = Color.White
     Box(
-        Modifier.size(176.dp).semantics { contentDescription = "$minutes $unit left" },
+        Modifier.size(if (compact) 118.dp else 176.dp).semantics { contentDescription = "$minutes $unit left" },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            val stroke = 14.dp.toPx()
+            val stroke = (if (compact) 10.dp else 14.dp).toPx()
             val inset = stroke / 2
             val sizePx = Size(size.width - stroke, size.height - stroke)
             drawArc(track, 0f, 360f, false, Offset(inset, inset), sizePx, style = Stroke(stroke))
             drawArc(arc, -90f, 360f * progress, false, Offset(inset, inset), sizePx, style = Stroke(stroke, cap = StrokeCap.Round))
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            if (showEmoji) Text("🕒", fontSize = 26.sp)
-            Text("$minutes", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Black, color = Color.White)
+            if (showEmoji && !compact) Text("🕒", fontSize = 26.sp)
+            Text("$minutes", style = if (compact) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Black, color = Color.White)
             Text(unit, style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.85f))
         }
     }
@@ -154,7 +155,7 @@ fun HomeworkProgress(done: Int, total: Int) {
 @Composable
 fun Keypad(onKey: (String) -> Unit, allowDecimal: Boolean, enabled: Boolean = true) {
     val look = LocalLook.current
-    val height = if (look.bigKeypad) 72.dp else 58.dp
+    val height = if (look.bigKeypad) 60.dp else 52.dp
     val rows = listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf(if (allowDecimal) "." else "", "0", "⌫"))
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         rows.forEach { row ->
@@ -169,7 +170,7 @@ fun Keypad(onKey: (String) -> Unit, allowDecimal: Boolean, enabled: Boolean = tr
                             modifier = Modifier.weight(1f).height(height).semantics { contentDescription = if (key == "⌫") "Delete" else key },
                             shape = RoundedCornerShape(look.corner * 0.7f),
                         ) {
-                            Text(key, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+                            Text(key, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
                         }
                     }
                 }
@@ -203,7 +204,7 @@ fun AnswerOptions(options: List<String>, enabled: Boolean, onPick: (String) -> U
             Button(
                 onClick = { onPick(option) },
                 enabled = enabled,
-                modifier = Modifier.fillMaxWidth().height(if (look.band == AgeBand.Little) 68.dp else 56.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = if (look.band == AgeBand.Little) 64.dp else 52.dp),
                 shape = RoundedCornerShape(look.corner * 0.7f),
                 border = if (teen) BorderStroke(2.dp, look.options[i]) else null,
                 colors = ButtonDefaults.buttonColors(
@@ -212,7 +213,7 @@ fun AnswerOptions(options: List<String>, enabled: Boolean, onPick: (String) -> U
                     disabledContainerColor = (if (teen) Color.White else look.options[i]).copy(alpha = 0.5f),
                 ),
             ) {
-                Text(option, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, modifier = Modifier.fillMaxWidth())
+                Text(option, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
             }
         }
     }
