@@ -137,6 +137,12 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Sends photos of the finished paper. With mode "ai" the minutes are added at once; with "parent" a parent checks it. */
+    fun readMessages(ids: List<String>) = run {
+        val t = token ?: return@run
+        Api.readMessages(t, ids)
+        loadState(t)
+    }
+
     fun sendPaper(setId: String, photos: List<Uri>, mode: String, onSent: () -> Unit) = run {
         message = null
         val t = token ?: return@run

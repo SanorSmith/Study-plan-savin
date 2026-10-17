@@ -172,11 +172,21 @@ async function Review({
             );
           })}
         </ol>
-        {pending && <button className={btn.primary}>Approve and award minutes</button>}
+        {pending && (
+          <>
+            <label className="block text-sm font-medium text-slate-700">
+              Message to {kid.name} (optional)
+              <textarea name="note" rows={2} maxLength={500} placeholder="Great job! Look at question 3 again." className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900" />
+            </label>
+            <p className="text-xs text-slate-500">{kid.name} sees the result and your message in the app.</p>
+            <button className={btn.primary}>Approve and award minutes</button>
+          </>
+        )}
       </form>
 
       {pending && (
-        <form action={rejectPaper.bind(null, kid.id, submission.id)} className="mt-4">
+        <form action={rejectPaper.bind(null, kid.id, submission.id)} className="mt-4 space-y-2">
+          <input name="note" maxLength={500} placeholder="Why? (optional, shown to the kid)" className="w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900" />
           <button className={btn.danger}>Discard this paper</button>
         </form>
       )}

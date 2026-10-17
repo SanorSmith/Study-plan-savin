@@ -92,6 +92,12 @@ fun KidScreen(vm: ParentViewModel, kidId: String) {
             if (sets.isNotEmpty()) OutlinedButton(onClick = { vm.openResults(kidId) }, modifier = Modifier.fillMaxWidth()) { Text("See every question and try") }
         }
 
+        var message by rememberSaveable { mutableStateOf("") }
+        Section("Message") {
+            OutlinedTextField(message, { message = it.take(500) }, label = { Text("A note for $name") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+            Button(onClick = { vm.sendMessage(kidId, message); message = "" }, enabled = !vm.busy && message.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Send") }
+        }
+
         Section("Give bonus time") {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 listOf(5, 10, 15, 30).forEach { m ->

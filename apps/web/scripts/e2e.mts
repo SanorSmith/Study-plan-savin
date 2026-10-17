@@ -265,6 +265,37 @@ try {
     check("the set is gone from the results", (await call(`/api/parent/kids/${newId}`, ptoken)).json.homework.length === 0);
     check("the kid has no question left", (await call("/api/kid/state", kidToken)).json.question === null);
 
+    // messages to the kid: a note, and the result of a checked paper
+    check("a message needs text", (await act(newId, { action: "message", text: "  " })).status === 400);
+    check("a parent sends a note", (await act(newId, { action: "message", text: "Well done this week!" })).status === 200);
+    let mst = await call("/api/kid/state", kidToken);
+    check("the kid sees the note, unread", mst.json.messages.length === 1 && mst.json.messages[0].body === "Well done this week!" && mst.json.messages[0].kind === "note", mst.json.messages);
+    const [mset] = await sql`insert into homework_sets (kid_id, subject, status) values (${newId}, 'Science', 'assigned') returning id`;
+    const mq = [];
+    for (const [i, t] of ["Q1", "Q2"].entries()) {
+      const [r] = await sql`insert into questions (set_id, text, type, options, answer_key, confirmed, position) values (${mset.id}, ${t}, 'numeric', null, ${String(i + 1)}, true, ${i}) returning id`;
+      mq.push(r.id);
+    }
+    const [msub] = await sql`insert into paper_submissions (kid_id, set_id, submitted_by, mode, ai_read) values (${newId}, ${mset.id}, 'kid', 'parent', false) returning id`;
+    for (const qid of mq) await sql`insert into paper_answers (submission_id, question_id, legible, ai_correct) values (${msub.id}, ${qid}, false, false)`;
+    const decided = await call(`/api/parent/papers/${msub.id}`, ptoken, { decision: "approve", correct: [mq[0]], note: "Check question 2 again" });
+    check("the paper is approved with a note", decided.status === 200 && decided.json.correctCount === 1, decided);
+    mst = await call("/api/kid/state", kidToken);
+    const resultMsg = mst.json.messages.find((m: any) => m.kind === "result");
+    check("the kid is told the result and the note", !!resultMsg && resultMsg.body.startsWith("Science: 1 of 2 right.") && resultMsg.body.endsWith("Check question 2 again"), mst.json.messages);
+    check("newest message comes first", mst.json.messages[0].kind === "result");
+    check("marking one message read", (await call("/api/kid/messages/read", kidToken, { ids: [resultMsg.id] })).status === 200);
+    mst = await call("/api/kid/state", kidToken);
+    check("only the other message is left", mst.json.messages.length === 1 && mst.json.messages[0].kind === "note", mst.json.messages);
+    check("marking all read", (await call("/api/kid/messages/read", kidToken, {})).status === 200);
+    check("no unread messages", (await call("/api/kid/state", kidToken)).json.messages.length === 0);
+    check("messages need a token", (await call("/api/kid/messages/read", null, {})).status === 401);
+    const [msub2] = await sql`insert into paper_submissions (kid_id, set_id, submitted_by, mode, ai_read) values (${newId}, ${mset.id}, 'kid', 'parent', false) returning id`;
+    check("a paper sent back tells the kid", (await call(`/api/parent/papers/${msub2.id}`, ptoken, { decision: "reject", note: "Please redo it" })).status === 200);
+    mst = await call("/api/kid/state", kidToken);
+    check("the kid is told it was sent back", mst.json.messages[0]?.body === "Science: your parent sent the paper back. Please redo it", mst.json.messages);
+    await call("/api/kid/messages/read", kidToken, {});
+
     // a pending paper: review it and approve two of the questions
     const [sub] = await sql`insert into paper_submissions (kid_id, set_id, submitted_by, mode, ai_read) values (${kid.id}, ${set.id}, 'kid', 'parent', false) returning id`;
     for (const qid of ids) await sql`insert into paper_answers (submission_id, question_id, legible, ai_correct) values (${sub.id}, ${qid}, false, false)`;

@@ -268,6 +268,7 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
         paperVersion += 1
     }
 
+    fun sendMessage(kidId: String, text: String) = act("Message sent.") { ParentApi.message(it, kidId, text) }
     fun bonus(kidId: String, minutes: Int) = act("Added ${minutesLabel(minutes)}.") { ParentApi.bonus(it, kidId, minutes) }
     fun withdraw(kidId: String, minutes: Int) = act("Took out {n} min.") { ParentApi.withdraw(it, kidId, minutes) }
     fun emptyBank(kidId: String) = act("Bank emptied ({n} min removed).") { ParentApi.emptyBank(it, kidId) }
@@ -307,12 +308,12 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
         return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
     }
 
-    fun decide(id: String, correct: Set<String>?, done: (String) -> Unit = {}) = run { t ->
+    fun decide(id: String, correct: Set<String>?, note: String = "", done: (String) -> Unit = {}) = run { t ->
         if (correct == null) {
-            ParentApi.reject(t, id)
+            ParentApi.reject(t, id, note)
             message = "Paper sent back. No minutes added."
         } else {
-            val r = ParentApi.approve(t, id, correct)
+            val r = ParentApi.approve(t, id, correct, note)
             message = "${r.correctCount} of ${r.total} counted. ${minutesLabel(r.awardedMinutes)} added."
         }
         state = ParentApi.state(t)

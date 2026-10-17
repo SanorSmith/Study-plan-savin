@@ -7,6 +7,7 @@ import { getDb } from "@/db";
 import { devices, kids, scheduleRules } from "@/db/schema";
 import { requireParent } from "@/lib/auth";
 import { BonusInput } from "@/lib/bonus-input";
+import { addKidMessage, MAX_NOTE } from "@/lib/messages";
 import { KidInput, PinInput } from "@/lib/kid-input";
 import { APPROVAL_MINUTES, grantBonus, setApproval, withdrawMinutes } from "@/lib/kid-service";
 import { generatePairingCode, pairingExpiry } from "@/lib/pairing";
@@ -156,5 +157,13 @@ export async function resetBank(kidId: string) {
 export async function setAiCheck(kidId: string, enabled: boolean) {
   const kid = await ownedKid(kidId);
   await getDb().update(kids).set({ aiCheckEnabled: enabled }).where(eq(kids.id, kid.id));
+  revalidatePath(`/kids/${kidId}`);
+}
+
+/** Parent sends the kid a short message; the kid sees it in their app. */
+export async function sendKidMessage(kidId: string, form: FormData) {
+  const kid = await ownedKid(kidId);
+  const text = String(form.get("text") ?? "").slice(0, MAX_NOTE);
+  await addKidMessage(kid.id, "note", text);
   revalidatePath(`/kids/${kidId}`);
 }

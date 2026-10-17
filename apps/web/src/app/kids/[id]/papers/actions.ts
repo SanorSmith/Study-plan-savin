@@ -7,6 +7,7 @@ import { z } from "zod";
 import { getDb } from "@/db";
 import { kids, paperSubmissions } from "@/db/schema";
 import { requireParent } from "@/lib/auth";
+import { MAX_NOTE, sendPaperResult } from "@/lib/messages";
 import { gradePaper, PaperGradingError } from "@/lib/paper-grading";
 import { applyAiResults, approveSubmission, imagesOf, questionsForSet, rejectSubmission } from "@/lib/paper-service";
 import { PAPER_LIMIT } from "@/lib/paper-intake";
@@ -30,15 +31,17 @@ export async function approvePaper(kidId: string, submissionId: string, form: Fo
   const id = SubmissionId.parse(submissionId);
   const correctIds = new Set(form.getAll("correct").map(String));
   const result = await approveSubmission(kid, id, correctIds);
+  if (result) await sendPaperResult(kid.id, id, { correct: result.correctCount, total: result.total, minutes: result.awardedMinutes }, String(form.get("note") ?? "").slice(0, MAX_NOTE));
   revalidatePath(`/kids/${kidId}`);
   revalidatePath("/dashboard");
   const params = new URLSearchParams(result ? { awarded: String(result.awardedMinutes), correct: String(result.correctCount) } : {});
   redirect(`/kids/${kidId}/papers/${id}?${params}`);
 }
 
-export async function rejectPaper(kidId: string, submissionId: string) {
+export async function rejectPaper(kidId: string, submissionId: string, form: FormData) {
   const kid = await ownedKid(kidId);
-  await rejectSubmission(kid.id, SubmissionId.parse(submissionId));
+  const id = SubmissionId.parse(submissionId);
+  if (await rejectSubmission(kid.id, id)) await sendPaperResult(kid.id, id, "sent_back", String(form.get("note") ?? "").slice(0, MAX_NOTE));
   revalidatePath(`/kids/${kidId}`);
   revalidatePath("/dashboard");
   redirect(`/kids/${kidId}`);

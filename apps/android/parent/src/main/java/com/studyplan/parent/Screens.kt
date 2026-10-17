@@ -219,12 +219,20 @@ fun PaperScreen(vm: ParentViewModel, paperId: String) {
             }
         }
 
+        var note by remember(paper.id) { mutableStateOf("") }
         if (pending) {
+            Text("Reply to ${paper.kidName} (optional)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("Great job! 🌟", "Look at the red ones again", "Let's practice").forEach { q ->
+                    androidx.compose.material3.AssistChip(onClick = { note = q }, label = { Text(q, style = MaterialTheme.typography.labelSmall) })
+                }
+            }
+            OutlinedTextField(note, { note = it.take(500) }, label = { Text("Message to ${paper.kidName}") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
             val count = ticks.size
-            Button(onClick = { vm.decide(paper.id, ticks) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            Button(onClick = { vm.decide(paper.id, ticks, note) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(56.dp)) {
                 Text(if (vm.busy) "…" else if (count == 0) "Approve, nothing counted" else "Approve ($count counted)")
             }
-            OutlinedButton(onClick = { vm.decide(paper.id, null) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Send back, no minutes") }
+            OutlinedButton(onClick = { vm.decide(paper.id, null, note) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Send back, no minutes") }
             OutlinedButton(onClick = { vm.askAi(paper.id) }, enabled = !vm.busy && paper.imageCount > 0, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                 Text(if (vm.busy) "Working…" else if (paper.aiRead) "Ask the AI again" else "Ask the AI for suggestions")
             }

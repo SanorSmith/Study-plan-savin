@@ -22,6 +22,7 @@ export type KidViewState = {
   question: KidQuestion | null;
   progress: { done: number; total: number } | null;
   schedule: { timezone: string; rules: ScheduleRule[] };
+  messages?: { id: string; kind: string; body: string }[];
 };
 
 export type AnswerOutcome = { correct: boolean; earnedMinutes: number; attemptsLeft: number };
@@ -35,6 +36,7 @@ export function KidHome({
   clockOffset = 0,
   onAnswer,
   error,
+  onReadMessages,
   children,
 }: {
   state: KidViewState;
@@ -42,6 +44,7 @@ export function KidHome({
   clockOffset?: number;
   onAnswer: (question: KidQuestion, value: string) => Promise<AnswerOutcome | null>;
   error?: string | null;
+  onReadMessages?: (ids: string[]) => void;
   children?: ReactNode; // the "did it on paper?" card
 }) {
   const look = LOOKS[band];
@@ -92,6 +95,17 @@ export function KidHome({
       {celebrate && <Celebration emoji={celebrate.split(" ")} text={feedback?.text ?? ""} />}
       <main className="mx-auto max-w-md space-y-5 px-4 py-6">
         <h1 className={look.heading}>{copy.hi(state.name)}</h1>
+
+        {(state.messages ?? []).map((m) => (
+          <section key={m.id} className="rounded-3xl bg-gradient-to-r from-amber-300 to-orange-300 p-4 text-slate-900 shadow-md" role="status">
+            <p className="text-lg font-bold">{band === "teen" ? "" : "💌 "}{m.body}</p>
+            {onReadMessages && (
+              <button type="button" onClick={() => onReadMessages([m.id])} className="mt-3 rounded-full bg-white/80 px-5 py-2 text-base font-bold">
+                {copy.gotIt}
+              </button>
+            )}
+          </section>
+        ))}
 
         <section className={`${look.hero} space-y-3 text-center`}>
           <TimeGauge minutes={state.balanceMinutes} look={look} unit={copy.minutes} emoji={band === "little"} />

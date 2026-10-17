@@ -18,6 +18,9 @@ data class Question(
 
 data class Progress(val done: Int, val total: Int)
 
+/** A message from a parent: a checked paper, a note, or new practice. */
+data class KidMessage(val id: String, val kind: String, val body: String)
+
 data class PaperSet(val id: String, val subject: String)
 
 data class KidState(
@@ -34,6 +37,7 @@ data class KidState(
     val grade: Int,
     val uiStyle: String,
     val progress: Progress?,
+    val messages: List<KidMessage>,
 )
 
 data class SyncData(val balanceMinutes: Int, val serverNow: String, val schedule: Schedule, val approvedUntil: String?)
@@ -123,12 +127,20 @@ object Api {
             grade = j.optInt("grade", 5),
             uiStyle = j.optString("uiStyle", "auto"),
             progress = j.optJSONObject("progress")?.let { Progress(it.getInt("done"), it.getInt("total")) },
+            messages = j.optJSONArray("messages")?.let { a ->
+                List(a.length()) { i -> a.getJSONObject(i).let { KidMessage(it.getString("id"), it.getString("kind"), it.getString("body")) } }
+            } ?: emptyList(),
         )
     }
 
     suspend fun answer(token: String, questionId: String, answer: String): AnswerResult {
         val j = call("POST", "/api/kid/answer", token, JSONObject().put("questionId", questionId).put("answer", answer))
         return AnswerResult(j.getBoolean("correct"), j.getInt("earnedMinutes"), j.getInt("attemptsLeft"))
+    }
+
+    /** The kid has read these messages. */
+    suspend fun readMessages(token: String, ids: List<String>) {
+        call("POST", "/api/kid/messages/read", token, JSONObject().put("ids", org.json.JSONArray(ids)))
     }
 
     /** Balance, schedule and server clock for the lock. Needs no PIN. */

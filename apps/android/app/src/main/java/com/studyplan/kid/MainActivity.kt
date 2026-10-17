@@ -154,6 +154,8 @@ private fun HomeScreen(vm: StudyViewModel, s: KidState) {
     val copy = Copies.of(vm.band)
     Text(copy.hi(s.name), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
 
+    s.messages.forEach { MessageCard(it, copy) { vm.readMessages(listOf(it.id)) } }
+
     TimeCard(copy)
 
     if (vm.celebration == null) vm.feedback?.let { FeedbackBox(it) }
@@ -173,6 +175,26 @@ private fun HomeScreen(vm: StudyViewModel, s: KidState) {
     }
 
     if (s.paperSets.isNotEmpty()) PaperCard(vm, s.paperSets, s.aiCheckEnabled)
+}
+
+/** A note from a parent, a checked paper or new practice. It stays until the kid taps the button. */
+@Composable
+private fun MessageCard(message: KidMessage, copy: Copy, onRead: () -> Unit) {
+    val look = LocalLook.current
+    Column(
+        Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color(0xFFFCD34D), Color(0xFFFDBA74))), RoundedCornerShape(look.corner)).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            (if (look.emoji) "💌 " else "") + message.body,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1F1B3A),
+        )
+        Button(onClick = onRead, colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.85f), contentColor = Color(0xFF1F1B3A))) {
+            Text(copy.gotIt, fontWeight = FontWeight.Bold)
+        }
+    }
 }
 
 @Composable
