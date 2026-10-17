@@ -109,7 +109,7 @@ export function LiveAlerts() {
   if (fresh.length === 0) return null;
   const first = fresh[0];
   return (
-    <div role="alert" className="fixed inset-x-3 top-3 z-50 mx-auto max-w-md rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-lg">
+    <div role="alert" className="fixed inset-x-3 top-3 z-50 mx-auto max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-xl">
       <p className="font-semibold text-amber-950">
         {fresh.length === 1 ? `${first.kidName} sent a paper` : `${fresh.length} papers to check`}
       </p>
@@ -118,7 +118,7 @@ export function LiveAlerts() {
         <Link
           href={`/kids/${first.kidId}/papers/${first.id}`}
           onClick={() => setFresh([])}
-          className="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+          className="inline-flex min-h-11 items-center rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm"
         >
           Check it
         </Link>

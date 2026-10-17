@@ -24,6 +24,8 @@ export const viewport: Viewport = {
   themeColor: "#6C4CF1",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false, // the screen is locked: no pinch zoom
   viewportFit: "cover",
 };
 
