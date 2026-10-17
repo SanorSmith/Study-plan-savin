@@ -90,19 +90,24 @@ export function HomeworkReview({ kidId, grade }: { kidId: string; grade: number 
             </label>
           </Card>
           <input type="hidden" name="questions" value={JSON.stringify(items)} />
-          <ol className="space-y-3">
+          <ol className="space-y-5">
             {items.map((q, i) => (
-              <li key={i}>
-                <Card className="space-y-3">
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span className="font-medium">Question {i + 1}</span>
-                    <span>{TYPE_LABEL[q.type]}</span>
-                  </div>
+              <li key={i} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white" aria-hidden="true">
+                    {i + 1}
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">{TYPE_LABEL[q.type]}</span>
+                  <button type="button" className={`${btn.danger} ml-auto`} onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}>
+                    Remove
+                  </button>
+                </div>
+                <div className="space-y-4 p-4">
                   <label className={labelText}>
                     Question
                     <textarea value={q.text} onChange={(e) => update(i, { text: e.target.value })} className={field} rows={2} />
                   </label>
-                  <label className={labelText}>
+                  <label className={`${labelText} block rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-200`}>
                     Correct answer
                     {q.type === "multiple_choice" && q.options ? (
                       <select value={q.answerKey} onChange={(e) => update(i, { answerKey: e.target.value })} className={field}>
@@ -120,10 +125,7 @@ export function HomeworkReview({ kidId, grade }: { kidId: string; grade: number 
                       />
                     )}
                   </label>
-                  <button type="button" className={btn.danger} onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}>
-                    Remove question
-                  </button>
-                </Card>
+                </div>
               </li>
             ))}
           </ol>

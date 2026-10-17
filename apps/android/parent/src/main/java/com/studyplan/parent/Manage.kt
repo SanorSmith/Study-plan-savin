@@ -19,6 +19,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -33,6 +34,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -312,23 +318,18 @@ fun ResultsScreen(vm: ParentViewModel, kidId: String) {
         else if (detail.homework.isEmpty()) Text("No homework yet.", style = MaterialTheme.typography.bodyLarge)
         detail?.homework?.forEach { s ->
             Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("${if (s.kind == "practice") "🎯 " else ""}${s.subject}: ${s.solved} of ${s.total} solved", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Earned ${minutesLabel(s.earnedMinutes)}", style = MaterialTheme.typography.bodyMedium)
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("${if (s.kind == "practice") "🎯 " else ""}${s.subject}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("${s.solved} of ${s.total} solved · ${minutesLabel(s.earnedMinutes)} earned", style = MaterialTheme.typography.bodyMedium)
+                    LinearProgressIndicator(progress = { if (s.total == 0) 0f else s.solved.toFloat() / s.total }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedButton(onClick = { vm.openEditHomework(kidId, s) }, enabled = !vm.busy, modifier = Modifier.weight(1f)) { Text("Edit") }
                         OutlinedButton(onClick = { removing = s }, enabled = !vm.busy, modifier = Modifier.weight(1f)) { Text("Remove") }
                     }
-                    HorizontalDivider()
-                    s.questions.forEachIndexed { i, q ->
-                        Column {
-                            Text("${i + 1}. ${q.text}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                            Text("Answer: ${q.answerKey}", style = MaterialTheme.typography.bodyMedium)
-                            Text("${statusLabel(q.status)} · ${if (q.tries == 1) "1 try" else "${q.tries} tries"}", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
                 }
             }
+            s.questions.forEachIndexed { i, q -> QuestionResultCard(i, q) }
+            Spacer(Modifier.height(10.dp))
         }
         Button(onClick = { vm.openNewHomework(kidId) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Add homework from a photo") }
     }
@@ -432,38 +433,59 @@ internal fun DraftList(vm: ParentViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun DraftCard(index: Int, d: QuestionDraft, onChange: (QuestionDraft) -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = d.include, onCheckedChange = { onChange(d.copy(include = it)) })
-                Text(if (d.include) "Question ${index + 1}" else "Question ${index + 1} (will be removed)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+internal fun DraftCard(index: Int, d: QuestionDraft, onChange: (QuestionDraft) -> Unit) {
+    androidx.compose.material3.OutlinedCard(
+        Modifier.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1)),
+        colors = androidx.compose.material3.CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column {
+            Row(
+                Modifier.fillMaxWidth().background(Color(0xFFF8FAFC)).padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                NumberBadge(index + 1)
+                Chip(typeLabel(d.type))
+                if (!d.include) Chip("Will be removed", Tone.Bad, bold = true)
+                Spacer(Modifier.weight(1f))
+                androidx.compose.material3.TextButton(onClick = { onChange(d.copy(include = !d.include)) }) { Text(if (d.include) "Remove" else "Keep") }
             }
             if (d.include) {
-                OutlinedTextField(d.text, { onChange(d.copy(text = it.take(1000))) }, label = { Text("Question") }, modifier = Modifier.fillMaxWidth())
-                if (d.type == "multiple_choice") {
-                    var optionsText by remember(d.id, index) { mutableStateOf(d.options.orEmpty().joinToString(", ")) }
-                    OutlinedTextField(
-                        optionsText,
-                        { optionsText = it; onChange(d.copy(options = parseOptions(it), answerKey = if (d.answerKey.trim() in parseOptions(it)) d.answerKey else "")) },
-                        label = { Text("Options, separated by commas") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text("Right answer:", style = MaterialTheme.typography.bodyMedium)
-                    d.options.orEmpty().forEach { o ->
-                        FilterChip(selected = d.answerKey.trim() == o.trim(), onClick = { onChange(d.copy(answerKey = o)) }, label = { Text(o) })
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(d.text, { onChange(d.copy(text = it.take(1000))) }, label = { Text("Question") }, modifier = Modifier.fillMaxWidth())
+                    Column(
+                        Modifier.fillMaxWidth().background(Tone.Good.container.copy(alpha = 0.5f), androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (d.type == "multiple_choice") {
+                            var optionsText by remember(d.id, index) { mutableStateOf(d.options.orEmpty().joinToString(", ")) }
+                            OutlinedTextField(
+                                optionsText,
+                                { optionsText = it; onChange(d.copy(options = parseOptions(it), answerKey = if (d.answerKey.trim() in parseOptions(it)) d.answerKey else "")) },
+                                label = { Text("Options, separated by commas") },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Text("Right answer", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = Tone.Good.content)
+                            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                d.options.orEmpty().forEach { o ->
+                                    FilterChip(selected = d.answerKey.trim() == o.trim(), onClick = { onChange(d.copy(answerKey = o)) }, label = { Text(o) })
+                                }
+                            }
+                        } else {
+                            OutlinedTextField(
+                                d.answerKey,
+                                { onChange(d.copy(answerKey = it.take(500))) },
+                                label = { Text(if (d.type == "numeric") "Right answer (a number)" else "Right answer") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = if (d.type == "numeric") KeyboardType.Decimal else KeyboardType.Text),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
-                } else {
-                    OutlinedTextField(
-                        d.answerKey,
-                        { onChange(d.copy(answerKey = it.take(500))) },
-                        label = { Text(if (d.type == "numeric") "Right answer (a number)" else "Right answer") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = if (d.type == "numeric") KeyboardType.Decimal else KeyboardType.Text),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
                 }
             }
         }

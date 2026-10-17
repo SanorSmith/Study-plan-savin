@@ -184,6 +184,7 @@ object ParentApi {
                             q.getString("id"), q.getString("type"),
                             q.optJSONArray("options")?.let { a -> List(a.length()) { i -> a.getString(i) } },
                             q.getString("text"), q.getString("answerKey"), q.getString("status"), q.getInt("tries"), q.getInt("earnedMinutes"),
+                            q.optJSONArray("attempts")?.let { a -> List(a.length()) { i -> a.getJSONObject(i).let { t -> TryInfo(t.getString("answer"), t.getBoolean("correct")) } } } ?: emptyList(),
                         )
                     },
                 )

@@ -30,7 +30,10 @@ private fun ParentTheme(content: @Composable () -> Unit) {
     val scheme = if (isSystemInDarkTheme()) {
         darkColorScheme(primary = Color(0xFF5EEAD4), onPrimary = Color(0xFF042F2E), background = Color(0xFF0B1210), surface = Color(0xFF0B1210))
     } else {
-        lightColorScheme(primary = Teal, onPrimary = Color.White, background = Color(0xFFF6FAF9), surface = Color(0xFFF6FAF9))
+        lightColorScheme(
+            primary = Teal, onPrimary = Color.White, background = Color(0xFFF6FAF9), surface = Color(0xFFF6FAF9),
+            secondaryContainer = Color(0xFFCCFBF1), onSecondaryContainer = Color(0xFF134E4A), primaryContainer = Color(0xFFCCFBF1), onPrimaryContainer = Color(0xFF134E4A),
+        )
     }
     MaterialTheme(colorScheme = scheme, content = content)
 }

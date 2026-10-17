@@ -57,6 +57,7 @@ export async function kidDetail(kid: typeof kids.$inferSelect) {
         answerKey: q.answerKey,
         status: q.status,
         tries: q.attempts.length,
+        attempts: q.attempts.map((a) => ({ answer: a.answer, correct: a.correct })),
         earnedMinutes: q.earnedMinutes,
       })),
     })),
