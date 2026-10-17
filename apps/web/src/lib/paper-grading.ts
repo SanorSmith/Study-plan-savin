@@ -10,7 +10,16 @@ export type GradableQuestion = {
   answerKey: string;
 };
 
-export type PaperImage = { mediaType: "image/jpeg" | "image/png" | "image/webp"; base64: string };
+/** A page of a paper: a photo, or a PDF (the AI reads both). */
+export type PaperImage = { mediaType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf"; base64: string };
+
+/** The content block that shows one photo or PDF to the AI. */
+export function fileBlock(img: PaperImage) {
+  if (img.mediaType === "application/pdf") {
+    return { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: img.base64 } };
+  }
+  return { type: "image" as const, source: { type: "base64" as const, media_type: img.mediaType, data: img.base64 } };
+}
 
 /** What the AI read for one question. */
 export const PaperReading = z.object({
@@ -60,7 +69,7 @@ export type PaperResult = {
 
 export function buildPrompt(questions: GradableQuestion[]): string {
   const list = questions.map((q) => ({ id: q.id, text: q.text, type: q.type, options: q.options, expected: q.answerKey }));
-  return `You are checking a child's handwritten answers on a school worksheet. The photo or photos show the worksheet with the child's handwriting.
+  return `You are checking a child's handwritten answers on a school worksheet. The photos or PDF pages show the worksheet with the child's handwriting or typed answers.
 
 Questions and the expected answers (JSON):
 ${JSON.stringify(list)}
@@ -111,10 +120,7 @@ export async function gradePaper(images: PaperImage[], questions: GradableQuesti
       {
         role: "user",
         content: [
-          ...images.map((img) => ({
-            type: "image" as const,
-            source: { type: "base64" as const, media_type: img.mediaType, data: img.base64 },
-          })),
+          ...images.map(fileBlock),
           { type: "text" as const, text: buildPrompt(questions) },
         ],
       },

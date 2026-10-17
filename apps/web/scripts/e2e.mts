@@ -97,6 +97,11 @@ try {
   const photos = await sql`select count(*)::int as n from paper_images pi join paper_submissions ps on ps.id = pi.submission_id where ps.kid_id = ${kid.id}`;
   check("that paper waits for the parent, unread by the AI, with its photo kept", queued[0].n === 1 && queued[0].ai_read === false && photos[0].n === 1, { queued, photos });
 
+  const pdf = new Blob(["%PDF-1.4 fake"], { type: "application/pdf" });
+  check("a PDF is accepted for a parent check", (await paperCall(token, { setId: set.id, image: pdf, mode: "parent" })) === 200);
+  const pdfs = await sql`select count(*)::int as n from paper_images pi join paper_submissions ps on ps.id = pi.submission_id where ps.kid_id = ${kid.id} and pi.content_type = 'application/pdf'`;
+  check("the PDF is stored as a PDF", pdfs[0].n === 1, pdfs);
+
   // answers: 3 tries per question, retry earns half
   let a = await call("/api/kid/answer", token, { questionId: ids[0], answer: "5" });
   check("wrong -> 2 tries left, 0 earned", a.json.correct === false && a.json.attemptsLeft === 2 && a.json.earnedMinutes === 0, a);
@@ -269,6 +274,11 @@ try {
     check("paper has the questions with keys", paper.status === 200 && paper.json.answers.length === 4 && paper.json.answers[0].answerKey === "4", paper);
     check("paper unknown to others is 404", (await call(`/api/parent/papers/${crypto.randomUUID()}`, ptoken)).status === 404);
     check("paper needs a token", (await call(`/api/parent/papers/${sub.id}`, null)).status === 401);
+    const [pdfSub] = await sql`select ps.id from paper_submissions ps join paper_images pi on pi.submission_id = ps.id where ps.kid_id = ${kid.id} and pi.content_type = 'application/pdf' limit 1`;
+    const pdfPaper = await call(`/api/parent/papers/${pdfSub.id}`, ptoken);
+    check("the parent app sees that the page is a PDF", pdfPaper.status === 200 && pdfPaper.json.imageTypes[0] === "application/pdf" && pdfPaper.json.imageCount === 1, pdfPaper.json);
+    const pdfRes = await fetch(`${BASE}/api/parent/papers/${pdfSub.id}/image/0`, { headers: { authorization: `Bearer ${ptoken}`, ...(process.env.E2E_BYPASS ? { "x-vercel-protection-bypass": process.env.E2E_BYPASS } : {}) } });
+    check("the PDF comes back as a PDF", pdfRes.status === 200 && pdfRes.headers.get("content-type") === "application/pdf" && (await pdfRes.text()).startsWith("%PDF"));
     check("paper photo is 404 when none stored", (await call(`/api/parent/papers/${sub.id}/image/0`, ptoken)).status === 404);
     const tick = paper.json.answers.filter((a: any) => !a.alreadySolved).slice(0, 2).map((a: any) => a.questionId);
     check("some questions are still unsolved", tick.length > 0, paper.json.answers);

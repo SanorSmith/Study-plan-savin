@@ -341,11 +341,12 @@ fun NewHomeworkScreen(vm: ParentViewModel, kidId: String) {
         if (ok && uri != null) vm.readWorksheet(context, uri, grade)
     }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) vm.readWorksheet(context, uri, grade) }
+    val pickPdf = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.readWorksheet(context, uri, grade) }
 
     Page {
         TextButton(onClick = { vm.back() }) { Text("← Back") }
         Text("Add homework", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text("Take a photo of the worksheet. The AI suggests the questions and answers. Check the answers before you assign it: the kid is graded against them.", style = MaterialTheme.typography.bodyMedium)
+        Text("Take a photo of the worksheet, or pick a PDF. The AI suggests the questions and answers. Check the answers before you assign it: the kid is graded against them.", style = MaterialTheme.typography.bodyMedium)
         OutlinedTextField(subject, { subject = it.take(60) }, label = { Text("Subject, for example Math") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
@@ -357,7 +358,12 @@ fun NewHomeworkScreen(vm: ParentViewModel, kidId: String) {
                 enabled = !vm.busy,
                 modifier = Modifier.weight(1f).height(52.dp),
                 onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-            ) { Text("From gallery") }
+            ) { Text("Gallery") }
+            OutlinedButton(
+                enabled = !vm.busy,
+                modifier = Modifier.weight(1f).height(52.dp),
+                onClick = { pickPdf.launch(arrayOf("application/pdf")) },
+            ) { Text("PDF") }
         }
         if (vm.busy) Text("Reading the worksheet… this can take up to a minute.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
         (problem ?: vm.error)?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge) }

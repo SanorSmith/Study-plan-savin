@@ -124,7 +124,7 @@ export function PaperCard({
         {files.length > 0 ? `${words.photos} (${files.length}/3)` : words.photos}
         <input
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
           multiple
           disabled={busy}
           onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 3))}

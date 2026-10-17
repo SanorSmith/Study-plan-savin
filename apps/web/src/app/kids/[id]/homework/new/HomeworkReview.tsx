@@ -56,10 +56,10 @@ export function HomeworkReview({ kidId, grade }: { kidId: string; grade: number 
     <div className="space-y-6">
       <Card>
         <label className={labelText}>
-          Photo of the worksheet
+          Photo or PDF of the worksheet
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
             capture="environment"
             disabled={busy}
             onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}

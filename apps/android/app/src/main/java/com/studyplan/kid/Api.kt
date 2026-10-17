@@ -155,15 +155,15 @@ object Api {
     }
 
     /**
-     * Sends photos of a finished paper. [mode] is "ai" (the AI checks it and the minutes are added at once, only if a
+     * Sends photos or PDFs of a finished paper. [mode] is "ai" (the AI checks it and the minutes are added at once, only if a
      * parent turned that on) or "parent" (a parent checks the photos by hand).
      */
-    suspend fun uploadPaper(token: String, setId: String, jpegs: List<ByteArray>, mode: String): PaperResult {
+    suspend fun uploadPaper(token: String, setId: String, files: List<UploadFile>, mode: String): PaperResult {
         val boundary = "----studyplan" + System.nanoTime()
         val body = multipartBody(
             boundary,
             mapOf("setId" to setId, "mode" to mode),
-            jpegs.mapIndexed { i, bytes -> FilePart("image", "page${i + 1}.jpg", "image/jpeg", bytes) },
+            files.map { FilePart("image", it.name, it.contentType, it.bytes) },
         )
         val j = call("POST", "/api/kid/paper", token, raw = "multipart/form-data; boundary=$boundary" to body, readTimeoutMs = 90_000)
         return if (j.optString("mode") == "ai") {

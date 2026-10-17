@@ -1,8 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
+import { fileBlock } from "@/lib/paper-grading";
 
 const MAX_BYTES = 4 * 1024 * 1024;
-const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"] as const;
 type MediaType = (typeof MEDIA_TYPES)[number];
 
 const Extracted = z.object({
@@ -52,8 +53,8 @@ export class ExtractError extends Error {
  * Only suggestions: a parent must confirm the answer key before anything is assigned to a kid.
  */
 export async function extractQuestions(file: File, grade: string) {
-  if (!MEDIA_TYPES.includes(file.type as MediaType)) throw new ExtractError(415, "unsupported image type");
-  if (file.size > MAX_BYTES) throw new ExtractError(413, "image too large");
+  if (!MEDIA_TYPES.includes(file.type as MediaType)) throw new ExtractError(415, "Use a JPEG, PNG or WebP photo, or a PDF");
+  if (file.size > MAX_BYTES) throw new ExtractError(413, "The file is too large (4 MB at most)");
 
   const data = Buffer.from(await file.arrayBuffer()).toString("base64");
   const client = new Anthropic();
@@ -65,10 +66,10 @@ export async function extractQuestions(file: File, grade: string) {
       {
         role: "user",
         content: [
-          { type: "image", source: { type: "base64", media_type: file.type as MediaType, data } },
+          fileBlock({ mediaType: file.type as MediaType, base64: data }),
           {
             type: "text",
-            text: `This is a photo of a school homework sheet${grade ? ` for grade ${grade}` : ""}. Extract every question as a self-contained item, and give your best answer for each as suggestedAnswer. Use "multiple_choice" with options when choices are printed, "numeric" for number answers (digits only), otherwise "short_text". Skip anything you cannot read rather than guessing.`,
+            text: `This is a photo or PDF of a school homework sheet${grade ? ` for grade ${grade}` : ""}. Extract every question as a self-contained item, and give your best answer for each as suggestedAnswer. Use "multiple_choice" with options when choices are printed, "numeric" for number answers (digits only), otherwise "short_text". Skip anything you cannot read rather than guessing.`,
           },
         ],
       },

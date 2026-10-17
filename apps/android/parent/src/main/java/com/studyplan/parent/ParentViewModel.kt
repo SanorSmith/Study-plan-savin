@@ -240,10 +240,15 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Sends a worksheet photo to be read; the suggested questions show up for editing. */
     fun readWorksheet(context: Context, uri: Uri, grade: Int) = run { t ->
-        val jpeg = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { ImageShrink.toJpeg(context, uri) }
-        val found = ParentApi.extractHomework(t, jpeg, grade)
+        val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val mime = context.contentResolver.getType(uri)
+            if (isPdf(mime)) WorksheetFile(context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("Could not read the PDF"), "application/pdf")
+            else WorksheetFile(ImageShrink.toJpeg(context, uri), "image/jpeg")
+        }
+        if (uploadTooLarge(file.bytes.size)) throw ApiException(413, "The file is too big (4 MB at most). Use fewer pages.")
+        val found = ParentApi.extractHomework(t, file, grade)
         drafts = found
-        if (found.isEmpty()) error = "No questions were found in the photo. Try a clearer, closer photo."
+        if (found.isEmpty()) error = "No questions were found. Try a clearer, closer photo."
     }
 
     fun assignHomework(id: String, subject: String) = run { t ->
@@ -278,10 +283,18 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
             val detail = ParentApi.paper(t, id)
             paper = detail
             photos = List(detail.imageCount) { null }
+            var shown = emptyList<Bitmap?>()
             for (i in 0 until detail.imageCount) {
-                val bmp = runCatching { decode(ParentApi.image(t, id, i)) }.getOrNull()
-                photos = photos.toMutableList().also { it[i] = bmp }
+                val bytes = runCatching { ParentApi.image(t, id, i) }.getOrNull()
+                val pages: List<Bitmap?> = when {
+                    bytes == null -> listOf(null)
+                    isPdf(detail.imageTypes.getOrNull(i)) -> runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { PdfPages.render(getApplication(), bytes) } }.getOrDefault(emptyList())
+                    else -> listOf(runCatching { decode(bytes) }.getOrNull())
+                }
+                shown = shown + pages
+                photos = shown + List(maxOf(0, detail.imageCount - i - 1)) { null }
             }
+            photos = shown
         }
     }
 

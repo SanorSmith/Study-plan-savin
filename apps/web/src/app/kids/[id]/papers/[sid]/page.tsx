@@ -78,12 +78,21 @@ async function Review({
         {submission.imageCount > 0 ? (
           <>
             <div className="grid gap-3 sm:grid-cols-3">
-              {Array.from({ length: submission.imageCount }, (_, i) => (
+              {Array.from({ length: submission.imageCount }, (_, i) =>
+                submission.imageTypes[i] === "application/pdf" ? (
+                  <div key={i} className="overflow-hidden rounded-lg border border-slate-200">
+                    <iframe src={`/api/papers/${submission.id}/image/${i}`} title={`PDF ${i + 1} of the paper`} className="h-72 w-full bg-slate-50" />
+                    <a href={`/api/papers/${submission.id}/image/${i}`} target="_blank" rel="noreferrer" className="block p-2 text-center text-sm font-medium text-slate-700 underline">
+                      Open the PDF
+                    </a>
+                  </div>
+                ) : (
                 <a key={i} href={`/api/papers/${submission.id}/image/${i}`} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-slate-200">
                   {/* eslint-disable-next-line @next/next/no-img-element -- a private, signed-in-only photo; the image optimizer cannot fetch it */}
                   <img src={`/api/papers/${submission.id}/image/${i}`} alt={`Page ${i + 1} of the paper`} className="h-56 w-full bg-slate-50 object-contain" />
                 </a>
-              ))}
+                ),
+              )}
             </div>
             <p className="mt-2 text-xs text-slate-500">Tap a photo to open it full size. Photos are kept for {PHOTO_RETENTION_DAYS} days, then deleted.</p>
           </>

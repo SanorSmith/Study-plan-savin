@@ -44,4 +44,19 @@ class PaperUploadTest {
         // the raw bytes of the first photo are in the body unchanged
         assertTrue(body.toList().windowed(3).any { it == listOf<Byte>(1, 2, 3) })
     }
+
+    @Test
+    fun pdfsAreRecognisedAndSentAsPdfs() {
+        assertTrue(PaperFiles.isPdf("application/pdf"))
+        assertTrue(!PaperFiles.isPdf("image/jpeg"))
+        assertTrue(!PaperFiles.isPdf(null))
+        assertEquals("paper1.pdf", PaperFiles.fileName(0, "application/pdf"))
+        assertEquals("page3.jpg", PaperFiles.fileName(2, "image/jpeg"))
+    }
+
+    @Test
+    fun theTotalSizeIsLimitedForTheServer() {
+        assertTrue(!PaperFiles.tooLarge(listOf(1_000_000, 2_000_000)))
+        assertTrue(PaperFiles.tooLarge(listOf(2_500_000, 2_000_000)))
+    }
 }
