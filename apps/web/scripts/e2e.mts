@@ -385,6 +385,24 @@ try {
     check("answering the fresh copy works", (await call("/api/kid/answer", kidToken, { questionId: again.json.question.id, answer: "5" })).status === 200);
     await call("/api/kid/messages/read", kidToken, {});
 
+    // the number printed on the worksheet is kept next to the app's own order
+    const labelled = await call(`/api/parent/kids/${blank.json.id}/homework`, ptoken, { subject: "Worksheet", questions: [
+      { text: "What is 1+1?", type: "numeric", options: null, answerKey: "2", label: "3" },
+      { text: "What is 2+2?", type: "numeric", options: null, answerKey: "4", label: "4b" },
+      { text: "What is 3+3?", type: "numeric", options: null, answerKey: "6", label: "" },
+    ] });
+    check("homework with the numbers from the paper is assigned", labelled.status === 200, labelled);
+    const ld = await call(`/api/parent/kids/${blank.json.id}`, ptoken);
+    const lq = ld.json.homework.find((h: any) => h.subject === "Worksheet").questions;
+    check("each question keeps its number from the paper, empty means none", lq[0].label === "3" && lq[1].label === "4b" && lq[2].label === null, lq);
+    check("the app's own order follows the sheet", lq.map((q: any) => q.text).join("|") === "What is 1+1?|What is 2+2?|What is 3+3?");
+    const lsetId = ld.json.homework.find((h: any) => h.subject === "Worksheet").id;
+    const labelEdit = await fetch(`${BASE}/api/parent/kids/${blank.json.id}/homework/${lsetId}`, { method: "PUT", headers: { "content-type": "application/json", authorization: `Bearer ${ptoken}`, ...(process.env.E2E_BYPASS ? { "x-vercel-protection-bypass": process.env.E2E_BYPASS } : {}) }, body: JSON.stringify({ subject: "Worksheet", questions: [{ id: lq[1].id, text: "What is 2+2?", type: "numeric", options: null, answerKey: "4", label: "5a" }, { id: lq[0].id, text: "What is 1+1?", type: "numeric", options: null, answerKey: "2", label: "3" }] }) });
+    check("the number can be edited, and the order can change", labelEdit.status === 200);
+    const lq2 = (await call(`/api/parent/kids/${blank.json.id}`, ptoken)).json.homework.find((h: any) => h.subject === "Worksheet").questions;
+    check("the edit kept the new numbers and the new order", lq2[0].text === "What is 2+2?" && lq2[0].label === "5a" && lq2[1].label === "3", lq2);
+    check("a number that is too long is refused", (await call(`/api/parent/kids/${blank.json.id}/homework`, ptoken, { subject: "x", questions: [{ text: "q", type: "numeric", options: null, answerKey: "1", label: "x".repeat(30) }] })).status === 400);
+
     // a pending paper: review it and approve two of the questions
     const [sub] = await sql`insert into paper_submissions (kid_id, set_id, submitted_by, mode, ai_read) values (${kid.id}, ${set.id}, 'kid', 'parent', false) returning id`;
     for (const qid of ids) await sql`insert into paper_answers (submission_id, question_id, legible, ai_correct) values (${sub.id}, ${qid}, false, false)`;

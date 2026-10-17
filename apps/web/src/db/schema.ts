@@ -85,6 +85,8 @@ export const questions = pgTable("questions", {
   answerKey: text("answer_key").notNull(),
   confirmed: boolean("confirmed").notNull().default(false),
   position: integer("position").notNull().default(0),
+  // The number printed next to the question on the worksheet (3, 4b, Exercise 2). The app keeps its own order in `position`.
+  label: text("label"),
 });
 
 export const attempts = pgTable(

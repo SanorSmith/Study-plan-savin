@@ -5,6 +5,7 @@ import { questionStatus, type QuestionStatus } from "@/lib/question-status";
 
 export type QuestionResult = {
   id: string;
+  label: string | null;
   text: string;
   type: string;
   options: string[] | null;
@@ -74,6 +75,7 @@ export async function homeworkResults(kidId: string): Promise<SetResult[]> {
           .map((t) => ({ answer: t.answer, correct: t.correct, at: t.createdAt }));
         return {
           id: q.id,
+          label: q.label,
           text: q.text,
           type: q.type,
           options: q.options,

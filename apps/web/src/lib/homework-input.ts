@@ -6,6 +6,13 @@ export const QuestionInput = z
     type: z.enum(["multiple_choice", "numeric", "short_text"]),
     options: z.array(z.string().trim().min(1).max(200)).max(8).nullable(),
     answerKey: z.string().trim().min(1).max(500),
+    // The number on the paper (optional). Empty text counts as none.
+    label: z
+      .string()
+      .trim()
+      .max(20)
+      .nullish()
+      .transform((v) => (v ? v : null)),
   })
   .superRefine((q, ctx) => {
     if (q.type === "multiple_choice") {

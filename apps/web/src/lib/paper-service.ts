@@ -26,6 +26,7 @@ export async function questionsForSet(setId: string): Promise<GradableQuestion[]
     .orderBy(asc(questions.position));
   return rows.map((q) => ({
     id: q.id,
+    label: q.label,
     text: q.text,
     type: q.type as GradableQuestion["type"],
     options: q.options,
@@ -204,6 +205,7 @@ export async function submissionForReview(submissionId: string, kidId: string) {
       options: questions.options,
       answerKey: questions.answerKey,
       position: questions.position,
+      label: questions.label,
       readAnswer: paperAnswers.readAnswer,
       legible: paperAnswers.legible,
       aiCorrect: paperAnswers.aiCorrect,

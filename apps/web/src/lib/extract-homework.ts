@@ -13,6 +13,7 @@ const Extracted = z.object({
       type: z.enum(["multiple_choice", "numeric", "short_text"]),
       options: z.array(z.string()).nullable(),
       suggestedAnswer: z.string(),
+      number: z.string().nullable(),
     }),
   ),
 });
@@ -29,8 +30,9 @@ const schema = {
           type: { type: "string", enum: ["multiple_choice", "numeric", "short_text"] },
           options: { type: ["array", "null"], items: { type: "string" } },
           suggestedAnswer: { type: "string" },
+          number: { type: ["string", "null"] },
         },
-        required: ["text", "type", "options", "suggestedAnswer"],
+        required: ["text", "type", "options", "suggestedAnswer", "number"],
         additionalProperties: false,
       },
     },
@@ -69,7 +71,7 @@ export async function extractQuestions(file: File, grade: string) {
           fileBlock({ mediaType: file.type as MediaType, base64: data }),
           {
             type: "text",
-            text: `This is a photo or PDF of a school homework sheet${grade ? ` for grade ${grade}` : ""}. Extract every question as a self-contained item, and give your best answer for each as suggestedAnswer. Use "multiple_choice" with options when choices are printed, "numeric" for number answers (digits only), otherwise "short_text". Skip anything you cannot read rather than guessing.`,
+            text: `This is a photo or PDF of a school homework sheet${grade ? ` for grade ${grade}` : ""}. Extract every question as a self-contained item, and give your best answer for each as suggestedAnswer. Use "multiple_choice" with options when choices are printed, "numeric" for number answers (digits only), otherwise "short_text". For each question also return number: the number or letter printed next to it on the sheet exactly as written (for example "3", "4b", "Exercise 2"), or null if it has none. Keep the questions in the order they appear on the sheet. Skip anything you cannot read rather than guessing.`,
           },
         ],
       },

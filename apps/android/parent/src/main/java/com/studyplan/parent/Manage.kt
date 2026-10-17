@@ -456,6 +456,14 @@ internal fun DraftCard(index: Int, d: QuestionDraft, onChange: (QuestionDraft) -
             }
             if (d.include) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        d.label,
+                        { onChange(d.copy(label = it.take(20))) },
+                        label = { Text("Number on the paper (optional)") },
+                        placeholder = { Text("3, 4b, Exercise 2") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     OutlinedTextField(d.text, { onChange(d.copy(text = it.take(1000))) }, label = { Text("Question") }, modifier = Modifier.fillMaxWidth())
                     Column(
                         Modifier.fillMaxWidth().background(Tone.Good.container.copy(alpha = 0.5f), androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).padding(12.dp),

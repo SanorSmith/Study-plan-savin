@@ -190,6 +190,7 @@ object ParentApi {
                             q.optJSONArray("options")?.let { a -> List(a.length()) { i -> a.getString(i) } },
                             q.getString("text"), q.getString("answerKey"), q.getString("status"), q.getInt("tries"), q.getInt("earnedMinutes"),
                             q.optJSONArray("attempts")?.let { a -> List(a.length()) { i -> a.getJSONObject(i).let { t -> TryInfo(t.getString("answer"), t.getBoolean("correct")) } } } ?: emptyList(),
+                            if (q.isNull("label")) null else q.getString("label"),
                         )
                     },
                 )
@@ -230,6 +231,7 @@ object ParentApi {
                 type = it.getString("type"),
                 options = it.optJSONArray("options")?.let { a -> List(a.length()) { i -> a.getString(i) } },
                 answerKey = it.optString("suggestedAnswer", ""),
+                label = if (it.isNull("number")) "" else it.getString("number"),
             )
         }
     }
@@ -241,6 +243,7 @@ object ParentApi {
                 JSONObject().put("text", it.text.trim()).put("type", it.type)
                     .put("options", if (it.type == "multiple_choice") JSONArray(it.options.orEmpty().map(String::trim)) else JSONObject.NULL)
                     .put("answerKey", it.answerKey.trim())
+                    .put("label", it.label.trim())
                     .apply { it.id?.let { id -> put("id", id) } },
             )
         }

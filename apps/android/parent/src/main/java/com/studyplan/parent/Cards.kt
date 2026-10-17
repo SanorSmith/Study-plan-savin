@@ -30,6 +30,7 @@ enum class Tone(val container: Color, val content: Color) {
     Bad(Color(0xFFFEE2E2), Color(0xFF991B1B)),
     Warn(Color(0xFFFEF3C7), Color(0xFF92400E)),
     Neutral(Color(0xFFF1F5F9), Color(0xFF475569)),
+    Info(Color(0xFFE0F2FE), Color(0xFF075985)),
 }
 
 fun statusTone(status: String): Tone = when (status) {
@@ -66,6 +67,7 @@ fun QuestionResultCard(index: Int, q: QuestionResultInfo) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(q.text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (!q.label.isNullOrBlank()) Chip("On the paper: ${q.label}", Tone.Info, bold = true)
                         Chip("Answer: ${q.answerKey}", Tone.Good, bold = true)
                         Chip(statusLabel(q.status), statusTone(q.status), bold = true)
                         if (q.earnedMinutes > 0) Chip("+${q.earnedMinutes} min", Tone.Good)

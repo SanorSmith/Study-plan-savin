@@ -53,10 +53,11 @@ class ScreenshotTest {
         review = review,
     )
 
-    private val numeric = Question("q1", "What is 7 x 8?", "numeric", null, "Math")
-    private val shortChoice = Question("q2", "Which is a prime number?", "multiple_choice", listOf("9", "15", "13", "21"), "Math")
+    private val numeric = Question("q1", "4b", "What is 7 x 8?", "numeric", null, "Math")
+    private val shortChoice = Question("q2", null, "Which is a prime number?", "multiple_choice", listOf("9", "15", "13", "21"), "Math")
     private val longChoice = Question(
         "q3",
+        "Exercise 12",
         "Which sentence uses a comma correctly when the speaker is listing three different things they bought?",
         "multiple_choice",
         listOf(
@@ -133,8 +134,8 @@ class ScreenshotTest {
     @Test
     @Config(qualifiers = "w360dp-h640dp-xhdpi")
     fun small_long_subject() =
-        shot("small_long_subject", AgeBand.Little, state(Question("q9", "What is 2 + 2?", "numeric", null, "Mathematics and problem solving")), fontScale = 1.3f)
+        shot("small_long_subject", AgeBand.Little, state(Question("q9", "3", "What is 2 + 2?", "numeric", null, "Mathematics and problem solving")), fontScale = 1.3f)
 
     @Test
-    fun long_subject_normal() = shot("long_subject_normal", AgeBand.Middle, state(Question("q9", "What is 2 + 2?", "numeric", null, "Mathematics and problem solving")))
+    fun long_subject_normal() = shot("long_subject_normal", AgeBand.Middle, state(Question("q9", "3", "What is 2 + 2?", "numeric", null, "Mathematics and problem solving")))
 }

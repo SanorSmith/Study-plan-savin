@@ -105,4 +105,12 @@ class FormsTest {
         val d = QuestionDraft("2+2", "numeric", null, "4", true, "abc")
         assertEquals("abc", d.copy(answerKey = "5").id)
     }
+
+    @Test
+    fun theNumberOnThePaperDoesNotChangeTheCheck() {
+        val q = numeric("4").copy(label = "4b")
+        assertNull(validateDraft(q))
+        assertEquals("4b", q.copy(answerKey = "5").label)
+        assertEquals("", numeric("4").label)
+    }
 }

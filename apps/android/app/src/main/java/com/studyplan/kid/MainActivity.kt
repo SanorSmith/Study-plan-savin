@@ -282,6 +282,7 @@ private fun QuestionCard(vm: StudyViewModel, s: KidState, q: Question, copy: Cop
         // Wraps to a second line instead of running off the screen when the subject name is long.
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             InfoPill(q.subject)
+            if (!q.label.isNullOrBlank()) InfoPill("No. ${q.label}")
             InfoPill("+${minOf(s.minutesPerQuestion, s.earnableTodayMinutes)} ${copy.minutes}")
         }
         Text(q.text, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)

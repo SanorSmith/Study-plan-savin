@@ -102,7 +102,7 @@ export async function runAutoPractice(now = new Date(), maxKids = 20, only?: str
  */
 export async function retryMissed(kidId: string): Promise<number> {
   const result = await getDb().execute(sql`
-    select q.text, q.type, q.options, q.answer_key
+    select q.text, q.type, q.options, q.answer_key, q.label
     from questions q
     join homework_sets s on s.id = q.set_id
     where s.kid_id = ${kidId}::uuid and s.status = 'assigned' and q.confirmed = true
@@ -112,11 +112,11 @@ export async function retryMissed(kidId: string): Promise<number> {
     order by s.created_at desc, q.position
     limit 20
   `);
-  const rows = result.rows as { text: string; type: "multiple_choice" | "numeric"; options: string[] | null; answer_key: string }[];
+  const rows = result.rows as { text: string; type: "multiple_choice" | "numeric"; options: string[] | null; answer_key: string; label: string | null }[];
   if (rows.length === 0) return 0;
   await assignHomeworkSet(
     kidId,
-    { subject: "Try again", questions: rows.map((r) => ({ text: r.text, type: r.type, options: r.type === "multiple_choice" ? r.options : null, answerKey: r.answer_key })) },
+    { subject: "Try again", questions: rows.map((r) => ({ text: r.text, type: r.type, options: r.type === "multiple_choice" ? r.options : null, answerKey: r.answer_key, label: r.label })) },
     "practice",
   );
   await addKidMessage(kidId, "practice", `Another try at ${rows.length} ${rows.length === 1 ? "question" : "questions"} you missed`);

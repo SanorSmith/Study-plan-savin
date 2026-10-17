@@ -130,6 +130,7 @@ async function Review({
                   <div className="flex items-start justify-between gap-3">
                     <p className="font-medium">
                       {i + 1}. {a.text}
+                      {a.label && <span className="ml-2 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-900 ring-1 ring-sky-200">paper {a.label}</span>}
                     </p>
                     {!pending && !solvedEarlier ? (
                       counted ? (

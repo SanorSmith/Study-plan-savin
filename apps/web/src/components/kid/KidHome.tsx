@@ -8,6 +8,7 @@ import { Celebration, Keypad, Progress, TimeGauge } from "./parts";
 
 export type KidQuestion = {
   id: string;
+  label?: string | null;
   text: string;
   type: "multiple_choice" | "numeric" | "short_text";
   options: string[] | null;
@@ -134,6 +135,7 @@ export function KidHome({
             {state.progress && <Progress done={state.progress.done} total={state.progress.total} band={band} look={look} />}
             <div className="flex flex-wrap gap-2">
               <span className={look.pill}>{q.subject}</span>
+              {q.label && <span className={look.pill}>No. {q.label}</span>}
               <span className={look.pill}>+{Math.min(state.minutesPerQuestion, state.earnableTodayMinutes)} {copy.minutes}</span>
             </div>
             <p className={look.question}>{q.text}</p>

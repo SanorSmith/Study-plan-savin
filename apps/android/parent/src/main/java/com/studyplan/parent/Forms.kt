@@ -8,6 +8,7 @@ data class QuestionDraft(
     val answerKey: String,
     val include: Boolean = true,
     val id: String? = null, // set when the question already exists and is being edited
+    val label: String = "", // the number printed next to the question on the paper (3, 4b); empty if none
 )
 
 /** The same rules the server applies, so the parent sees the problem before sending. Null means fine. */
