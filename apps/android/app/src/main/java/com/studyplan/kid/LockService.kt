@@ -43,6 +43,7 @@ class LockService : Service() {
     private var carryMs = 0L
     private var lastReportAt = 0L
     private var lastRefreshAt = 0L
+    private var lastNewsAt = 0L
     private var allowed: Set<String> = emptySet()
     private var allowedAt = 0L
     private var camera: Set<String> = emptySet()
@@ -153,6 +154,10 @@ class LockService : Service() {
     private fun maybeSync(now: Long) {
         val refresh = now - lastRefreshAt > REFRESH_MS
         val reportDue = (Store.pendingSec(this) >= 60 || Store.inflight(this) != null) && now - lastReportAt > REPORT_MS
+        if (now - lastNewsAt > NEWS_MS) {
+            lastNewsAt = now
+            scope.launch { KidAlerts.check(this@LockService) }
+        }
         if (refresh || reportDue) {
             lastReportAt = now
             if (refresh) lastRefreshAt = now
@@ -173,6 +178,7 @@ class LockService : Service() {
         const val TICK_MS = 500L
         const val REPORT_MS = 30_000L
         const val REFRESH_MS = 5 * 60_000L
+        const val NEWS_MS = 45_000L
         const val ALLOWED_TTL_MS = 60_000L
     }
 }

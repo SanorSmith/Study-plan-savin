@@ -33,6 +33,13 @@ object Store {
         e.apply()
     }
 
+    // --- what the parent has sent, so each thing rings once ----------------------------------------
+
+    /** Ids already rung for, or null before the first look (which only learns what is there). */
+    fun newsSeen(c: Context): Set<String>? = prefs(c).getStringSet("newsSeen", null)
+
+    fun setNewsSeen(c: Context, ids: Set<String>) = prefs(c).edit().putStringSet("newsSeen", ids).apply()
+
     // --- the look of the app ----------------------------------------------------------------------
 
     /** The age band of the last state, so the lock cover and the first screens look right before anything loads. */

@@ -168,6 +168,12 @@ object Api {
         )
     }
 
+    /** New homework, practice and messages from a parent. Needs no PIN. */
+    suspend fun news(token: String): List<News> {
+        val a = call("GET", "/api/kid/news", token).getJSONArray("items")
+        return List(a.length()) { i -> a.getJSONObject(i).let { News(it.getString("id"), it.getString("title"), it.getString("text")) } }
+    }
+
     /** Reports screen time used. Sending the same [key] again never charges twice. */
     suspend fun usage(token: String, minutes: Int, key: String): UsageResult {
         val j = call("POST", "/api/kid/usage", token, JSONObject().put("minutes", minutes).put("key", key))
