@@ -81,4 +81,14 @@ class ModelTest {
         assertEquals(1500 to 2123, PdfPages.pageSize(595, 842))
         assertEquals(1500 to 1500, PdfPages.pageSize(0, 0))
     }
+
+    @Test
+    fun pollingSlowsDownAfterFailuresAndStopsGrowing() {
+        assertEquals(30_000L, pollDelayMs(0))
+        assertEquals(60_000L, pollDelayMs(1))
+        assertEquals(120_000L, pollDelayMs(2))
+        assertEquals(300_000L, pollDelayMs(4))
+        assertEquals(300_000L, pollDelayMs(40))
+        assertEquals(30_000L, pollDelayMs(-3))
+    }
 }

@@ -1,9 +1,11 @@
 import { and, eq } from "drizzle-orm";
+import { after } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { homeworkSets } from "@/db/schema";
 import { getDevice, isUnlocked } from "@/lib/device-auth";
 import { CheckMode, IntakeError, PAPER_LIMIT, processPaper } from "@/lib/paper-intake";
+import { notifyPaper } from "@/lib/push";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const SetId = z.uuid();
@@ -45,6 +47,8 @@ export async function POST(request: Request) {
       mode: mode.data,
       readWithAi: mode.data === "ai",
     });
+    // Tell the parent right after the kid gets the answer; a slow notification never holds the kid up.
+    after(() => notifyPaper(outcome.submissionId, outcome.kind === "ai" ? { correct: outcome.correct, total: outcome.total } : undefined));
     if (outcome.kind === "ai") {
       return Response.json({ mode: "ai", correct: outcome.correct, total: outcome.total, minutes: outcome.minutes });
     }

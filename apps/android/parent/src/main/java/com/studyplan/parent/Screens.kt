@@ -130,6 +130,31 @@ fun HomeScreen(vm: ParentViewModel) {
                 }
             }
         }
+        androidx.compose.material3.Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Instant sound alerts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (vm.instantAlerts) "On: a sound within half a minute when a kid sends a paper." else "Off: alerts can take up to 15 minutes.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                    Switch(checked = vm.instantAlerts, onCheckedChange = { vm.turnInstantAlerts(it) })
+                }
+                if (vm.instantAlerts) {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    Text("Keeps one quiet notice and uses a little battery. If alerts stop, let the app run in the background:", style = MaterialTheme.typography.bodySmall)
+                    OutlinedButton(onClick = {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).setData(android.net.Uri.parse("package:" + context.packageName)),
+                            )
+                        }
+                    }) { Text("Allow background use") }
+                }
+            }
+        }
         if (state != null) {
             Button(onClick = { vm.clearMessages(); vm.screen = Screen.AddKid }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Add a kid") }
         }

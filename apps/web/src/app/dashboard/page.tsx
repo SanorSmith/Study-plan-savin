@@ -8,6 +8,7 @@ import { Avatar, Badge, btn, Card, CardHeader, field, PageHeader } from "@/compo
 import { PageLoading, ParentShell } from "@/components/ParentShell";
 import { requireParent } from "@/lib/auth";
 import { pendingCounts } from "@/lib/paper-service";
+import { AlertsCard } from "./AlertsCard";
 import { ParentAppCard } from "./ParentAppCard";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { setParentPin } from "./actions";
@@ -152,6 +153,8 @@ async function KidList() {
           <button className={btn.secondary}>{parent.approvalPinHash ? "Change PIN" : "Set PIN"}</button>
         </form>
       </Card>
+
+      <AlertsCard />
 
       <ParentAppCard phones={parentPhones} />
 

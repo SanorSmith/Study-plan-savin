@@ -59,6 +59,7 @@ private fun Root(vm: ParentViewModel) {
     LaunchedEffect(signedIn) {
         if (signedIn) {
             Notifier.schedule(context)
+            AlertService.start(context)
             if (Build.VERSION.SDK_INT >= 33 && !Notifier.allowed(context)) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }

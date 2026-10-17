@@ -85,6 +85,13 @@
       "when": 1792252573164,
       "tag": "0011_black_edwin_jarvis",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792253152203,
+      "tag": "0012_ambiguous_yellow_claw",
+      "breakpoints": true
     }
   ]
 }

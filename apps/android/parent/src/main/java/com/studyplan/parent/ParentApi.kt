@@ -43,6 +43,12 @@ object ParentApi {
     suspend fun pair(code: String, phoneName: String): String =
         call("POST", "/api/parent/pair", null, JSONObject().put("code", code).put("name", phoneName)).getString("token")
 
+    /** Just the papers waiting for review: light enough to ask every half minute. */
+    suspend fun pending(token: String): List<PaperItem> =
+        call("GET", "/api/parent/pending", token).getJSONArray("papers").objects().map {
+            PaperItem(it.getString("id"), it.getString("kidId"), it.getString("kidName"), it.getString("subject"), it.getString("createdAt"))
+        }
+
     suspend fun state(token: String): ParentState {
         val j = call("GET", "/api/parent/state", token)
         return ParentState(
