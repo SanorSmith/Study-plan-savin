@@ -6,7 +6,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -50,7 +53,7 @@ private val cardGap = Arrangement.spacedBy(10.dp)
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
+    SoftCard {
         Column(Modifier.padding(16.dp), verticalArrangement = cardGap) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             content()
@@ -58,13 +61,18 @@ private fun Section(title: String, content: @Composable () -> Unit) {
     }
 }
 
+private val KID_TABS = listOf(Triple("today", "🏠", "Today"), Triple("homework", "📚", "Homework"), Triple("time", "⏰", "Time"), Triple("settings", "⚙️", "Settings"))
+
 @Composable
-fun KidScreen(vm: ParentViewModel, kidId: String) {
+fun KidScreen(vm: ParentViewModel, kidId: String, initialTab: String = "today") {
     val summary = vm.state?.kids?.firstOrNull { it.id == kidId }
     val detail = vm.kid?.takeIf { it.id == kidId }
     var withdraw by rememberSaveable { mutableStateOf("") }
     var confirmEmpty by remember { mutableStateOf(false) }
     var addingRule by remember { mutableStateOf(false) }
+    var tab by rememberSaveable { mutableStateOf(initialTab) }
+    var message by rememberSaveable { mutableStateOf("") }
+    var moreAmounts by rememberSaveable { mutableStateOf(false) }
 
     Page {
         TextButton(onClick = { vm.goHome() }) { Text("← All kids") }
@@ -77,109 +85,144 @@ fun KidScreen(vm: ParentViewModel, kidId: String) {
         val ai = detail?.aiCheckEnabled ?: summary!!.aiCheckEnabled
         val approved = detail?.approvedForSettings ?: summary!!.approvedForSettings
 
-        Text(name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text(minutesLabel(balance) + " in the bank", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-        detail?.let { Text("Earned today: ${minutesLabel(it.earnedTodayMinutes)} of ${minutesLabel(it.dailyCapMinutes)} a day", style = MaterialTheme.typography.bodyMedium) }
+        KidHero(
+            name = name,
+            grade = detail?.grade ?: summary?.grade,
+            bank = balance,
+            facts = listOf(
+                "Earned today" to (detail?.let { "${it.earnedTodayMinutes}/${it.dailyCapMinutes}" } ?: "-"),
+                "Phones" to "${summary?.pairedPhones ?: detail?.phones?.count { it.paired } ?: 0}",
+                "Per answer" to (detail?.let { "${it.minutesPerQuestion} min" } ?: "-"),
+            ),
+        )
         Messages(vm)
 
         val papers = vm.state?.papers.orEmpty().filter { it.kidId == kidId }
-        if (papers.isNotEmpty()) {
-            Section("Papers to check") {
-                papers.forEach { p -> OutlinedButton(onClick = { vm.clearMessages(); vm.openPaper(p.id) }, modifier = Modifier.fillMaxWidth()) { Text(p.subject) } }
-            }
-        }
-
-        Section("How is it going?") {
-            Text("See where $name is strong and where they need practice, and ask the AI to assess it.", style = MaterialTheme.typography.bodyMedium)
-            Button(onClick = { vm.openPerformance(kidId) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Performance report") }
-            OutlinedButton(onClick = { vm.openPractice(kidId) }, modifier = Modifier.fillMaxWidth()) { Text("Practice questions") }
-        }
-
-        Section("Homework") {
-            val sets = detail?.homework.orEmpty()
-            if (detail == null) Text("Loading…", style = MaterialTheme.typography.bodyMedium)
-            else if (sets.isEmpty()) Text("No homework yet. Take a photo of a worksheet to add some.", style = MaterialTheme.typography.bodyMedium)
-            sets.take(3).forEach { s -> Text("${s.subject}: ${s.solved} of ${s.total} solved", style = MaterialTheme.typography.bodyLarge) }
-            Button(onClick = { vm.openNewHomework(kidId) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Add homework from a photo") }
-            if (sets.isNotEmpty()) OutlinedButton(onClick = { vm.openResults(kidId) }, modifier = Modifier.fillMaxWidth()) { Text("See every question and try") }
-            if (sets.isNotEmpty()) OutlinedButton(onClick = { vm.retryMissed(kidId) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) { Text("Let $name try the missed questions again") }
-        }
-
-        var message by rememberSaveable { mutableStateOf("") }
-        Section("Message") {
-            OutlinedTextField(message, { message = it.take(500) }, label = { Text("A note for $name") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
-            Button(onClick = { vm.sendMessage(kidId, message); message = "" }, enabled = !vm.busy && message.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Send") }
-        }
-
-        Section("Give bonus time") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                listOf(5, 10, 15, 30).forEach { m ->
-                    Button(onClick = { vm.bonus(kidId, m) }, enabled = !vm.busy, modifier = Modifier.weight(1f)) { Text("+$m") }
-                }
-            }
-            Text("Bonus minutes do not count toward the daily limit.", style = MaterialTheme.typography.bodySmall)
-        }
-
-        Section("Take minutes out of the bank") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = withdraw,
-                    onValueChange = { withdraw = it.filter(Char::isDigit).take(5) },
-                    label = { Text("Minutes") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f),
-                )
-                Button(onClick = { vm.withdraw(kidId, withdraw.toInt()); withdraw = "" }, enabled = !vm.busy && (withdraw.toIntOrNull() ?: 0) > 0) { Text("Take out") }
-            }
-            OutlinedButton(onClick = { confirmEmpty = true }, enabled = !vm.busy && balance > 0, modifier = Modifier.fillMaxWidth()) { Text("Empty the bank") }
-        }
-
-        Section("Time windows") {
-            val rules = detail?.schedule.orEmpty()
-            if (detail != null && rules.isEmpty()) Text("No locked or free times. Screen time follows the bank only.", style = MaterialTheme.typography.bodyMedium)
-            rules.forEach { r ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(ruleLabel(r.mode, r.days, r.startMinute, r.endMinute), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { vm.deleteRule(kidId, r.id) }, enabled = !vm.busy) { Text("Remove") }
-                }
-            }
-            OutlinedButton(onClick = { addingRule = true }, modifier = Modifier.fillMaxWidth()) { Text("Add a time window") }
-            Text("Locked: the phone is locked in this time. Free: the phone can be used without spending minutes.", style = MaterialTheme.typography.bodySmall)
-        }
-
-        Section("Kid's phone") {
-            val phones = detail?.phones.orEmpty().filter { it.paired }
-            Text(if (phones.isEmpty()) "No phone paired yet." else if (phones.size == 1) "1 phone paired." else "${phones.size} phones paired.", style = MaterialTheme.typography.bodyMedium)
-            vm.newCode?.let { code ->
-                Text(code, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Text("Type this code in the Study Plan kid app. It works once, for 15 minutes.", style = MaterialTheme.typography.bodySmall)
-            }
-            OutlinedButton(onClick = { vm.pairPhone(kidId) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) { Text(if (vm.newCode == null) "Make a code for the kid's phone" else "Make a new code") }
-        }
-
-        Section("Checking and Settings") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        papers.forEach { p ->
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color(0xFFFEF3C7), Color(0xFFFFEDD5)))).clickable { vm.clearMessages(); vm.openPaper(p.id) }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("📝", style = MaterialTheme.typography.headlineSmall)
                 Column(Modifier.weight(1f)) {
-                    Text("Let the kid choose AI checking", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Text(if (ai) "On: the AI can check a paper and add the minutes at once." else "Off: every paper comes to you.", style = MaterialTheme.typography.bodyMedium)
+                    Text("${p.subject} is waiting", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF451A03))
+                    Text("Tap to check it", style = MaterialTheme.typography.bodySmall, color = Color(0xFF78350F))
                 }
-                Switch(checked = ai, onCheckedChange = { vm.setAi(kidId, it) }, enabled = !vm.busy)
-            }
-            HorizontalDivider()
-            Text("Settings on the kid's phone", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(if (approved) "Open for a few minutes." else "Closed. The kid cannot open Settings or uninstall the app.", style = MaterialTheme.typography.bodyMedium)
-            OutlinedButton(onClick = { vm.allowSettings(kidId, !approved) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
-                Text(if (approved) "Close Settings now" else "Allow Settings for 10 minutes")
+                Text("›", style = MaterialTheme.typography.headlineSmall, color = Color(0xFF78350F))
             }
         }
 
-        if (detail != null) {
-            Section("Profile") {
-                Text("Grade ${detail.grade} · ${minutesLabel(detail.minutesPerQuestion)} per answer · up to ${minutesLabel(detail.dailyCapMinutes)} a day", style = MaterialTheme.typography.bodyMedium)
-                Text("Look: ${styleLabel(detail.uiStyle)}", style = MaterialTheme.typography.bodyMedium)
-                Text(if (detail.hasPin) "PIN is set." else "No PIN yet. The kid cannot open the app until you set one.", style = MaterialTheme.typography.bodyMedium)
-                OutlinedButton(onClick = { vm.openEdit(kidId) }, modifier = Modifier.fillMaxWidth()) { Text("Edit profile or change the PIN") }
+        PillTabs(KID_TABS, tab) { tab = it }
+
+        when (tab) {
+            "today" -> {
+                Section("🎁  Give bonus time") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        listOf(5, 10, 15, 30).forEach { m ->
+                            Button(onClick = { vm.bonus(kidId, m) }, enabled = !vm.busy, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) { Text("+$m") }
+                        }
+                    }
+                    Text("Bonus minutes do not count toward the daily limit.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                    TextButton(onClick = { moreAmounts = !moreAmounts }) { Text(if (moreAmounts) "Hide" else "Take minutes out…") }
+                    if (moreAmounts) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = withdraw,
+                                onValueChange = { withdraw = it.filter(Char::isDigit).take(5) },
+                                label = { Text("Minutes") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                            )
+                            Button(onClick = { vm.withdraw(kidId, withdraw.toInt()); withdraw = "" }, enabled = !vm.busy && (withdraw.toIntOrNull() ?: 0) > 0) { Text("Take out") }
+                        }
+                        OutlinedButton(onClick = { confirmEmpty = true }, enabled = !vm.busy && balance > 0, modifier = Modifier.fillMaxWidth()) { Text("Empty the bank") }
+                    }
+                }
+                Section("💬  Send a message") {
+                    OutlinedTextField(message, { message = it.take(500) }, label = { Text("A note for $name") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                    Button(onClick = { vm.sendMessage(kidId, message); message = "" }, enabled = !vm.busy && message.isNotBlank(), modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("Send") }
+                }
+            }
+
+            "homework" -> {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    ActionTile("➕", "Add homework", "From a photo or PDF", Modifier.weight(1f), primary = true) { vm.openNewHomework(kidId) }
+                    ActionTile("📚", "Results", "Every question", Modifier.weight(1f)) { vm.openResults(kidId) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    ActionTile("📈", "How is it going?", "Strengths and weaknesses", Modifier.weight(1f)) { vm.openPerformance(kidId) }
+                    ActionTile("🎯", "Practice", "Questions from the AI", Modifier.weight(1f)) { vm.openPractice(kidId) }
+                }
+                val sets = detail?.homework.orEmpty()
+                if (sets.isNotEmpty()) {
+                    Section("Latest homework") {
+                        sets.take(3).forEach { s ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("${if (s.kind == "practice") "🎯 " else ""}${s.subject}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                Chip("${s.solved}/${s.total} solved", if (s.total > 0 && s.solved == s.total) Tone.Good else Tone.Neutral, bold = true)
+                            }
+                        }
+                        OutlinedButton(onClick = { vm.retryMissed(kidId) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) { Text("Let $name try the missed questions again") }
+                    }
+                }
+                Section("🤖  Paper checking") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Let the kid choose AI checking", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(if (ai) "On: the AI can check a paper and add the minutes at once." else "Off: every paper comes to you.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                        }
+                        Switch(checked = ai, onCheckedChange = { vm.setAi(kidId, it) }, enabled = !vm.busy)
+                    }
+                }
+            }
+
+            "time" -> {
+                Section("⏰  Time windows") {
+                    val rules = detail?.schedule.orEmpty()
+                    Text("Locked: the phone is off in this time. Free: the phone is free to use without spending minutes.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                    if (detail != null && rules.isEmpty()) Text("No windows yet. Screen time follows the bank only.", style = MaterialTheme.typography.bodyMedium)
+                    rules.forEach { r ->
+                        Row(
+                            Modifier.fillMaxWidth().background(Color(0xFFF8FAFC), RoundedCornerShape(14.dp)).padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Chip(if (r.mode == "blocked") "🔒 Locked" else "🎈 Free", if (r.mode == "blocked") Tone.Bad else Tone.Good, bold = true)
+                                Text("${daysLabel(r.days)} · ${formatMinute(r.startMinute)} to ${formatMinute(r.endMinute)}", style = MaterialTheme.typography.bodyMedium)
+                            }
+                            TextButton(onClick = { vm.deleteRule(kidId, r.id) }, enabled = !vm.busy) { Text("Remove") }
+                        }
+                    }
+                    Button(onClick = { addingRule = true }, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("Add a time window") }
+                }
+            }
+
+            else -> {
+                Section("📱  Kid's phone") {
+                    val phones = detail?.phones.orEmpty().filter { it.paired }
+                    Text(if (phones.isEmpty()) "No phone paired yet." else if (phones.size == 1) "1 phone paired." else "${phones.size} phones paired.", style = MaterialTheme.typography.bodyMedium)
+                    vm.newCode?.let { code ->
+                        Text(code, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text("Type this code in the Study Plan kid app. It works once, for 15 minutes.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                    }
+                    OutlinedButton(onClick = { vm.pairPhone(kidId) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) { Text(if (vm.newCode == null) "Make a code for the kid's phone" else "Make a new code") }
+                }
+                Section("🔓  Settings on the kid's phone") {
+                    Text(if (approved) "Open for a few minutes." else "Closed. The kid cannot open Settings or uninstall the app.", style = MaterialTheme.typography.bodyMedium)
+                    OutlinedButton(onClick = { vm.allowSettings(kidId, !approved) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (approved) "Close Settings now" else "Allow Settings for 10 minutes")
+                    }
+                }
+                if (detail != null) {
+                    Section("🙂  Profile") {
+                        Text("Grade ${detail.grade} · ${minutesLabel(detail.minutesPerQuestion)} per answer · up to ${minutesLabel(detail.dailyCapMinutes)} a day", style = MaterialTheme.typography.bodyMedium)
+                        Text("Look: ${styleLabel(detail.uiStyle)}", style = MaterialTheme.typography.bodyMedium)
+                        Text(if (detail.hasPin) "PIN is set." else "No PIN yet. The kid cannot open the app until you set one.", style = MaterialTheme.typography.bodyMedium)
+                        Button(onClick = { vm.openEdit(kidId) }, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("Edit profile or change the PIN") }
+                    }
+                }
             }
         }
     }

@@ -66,6 +66,12 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
         if (on) AlertService.start(getApplication()) else AlertService.stop(getApplication())
     }
 
+    /** For screenshot tests: shows made-up data without talking to the server. */
+    internal fun showForPreview(s: ParentState?, k: KidDetail?) {
+        state = s
+        kid = k
+    }
+
     fun clearMessages() {
         message = null
         error = null

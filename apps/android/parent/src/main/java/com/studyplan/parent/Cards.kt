@@ -2,6 +2,8 @@ package com.studyplan.parent
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -88,6 +90,109 @@ fun QuestionResultCard(index: Int, q: QuestionResultInfo) {
                         q.attempts.forEach { t -> Chip("${if (t.correct) "✓" else "✗"} ${t.answer}", if (t.correct) Tone.Good else Tone.Bad) }
                     }
                 }
+            }
+        }
+    }
+}
+
+private val Violet = Color(0xFF6C4CF1)
+private val Indigo = Color(0xFF4F46E5)
+private val Sky = Color(0xFF0EA5E9)
+
+/** The soft white card every section sits on. */
+@Composable
+fun SoftCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
+    val colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color.White)
+    val shape = RoundedCornerShape(20.dp)
+    val elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 2.dp)
+    if (onClick != null) {
+        androidx.compose.material3.Card(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, colors = colors, elevation = elevation) { content() }
+    } else {
+        androidx.compose.material3.Card(modifier = modifier.fillMaxWidth(), shape = shape, colors = colors, elevation = elevation) { content() }
+    }
+}
+
+/** A colored circle with the kid's first letter. The color follows the name, so each kid keeps theirs. */
+@Composable
+fun KidAvatar(name: String, size: androidx.compose.ui.unit.Dp = 48.dp) {
+    val palettes = listOf(
+        listOf(Color(0xFF8B5CF6), Color(0xFFD946EF)),
+        listOf(Color(0xFF0EA5E9), Color(0xFF6366F1)),
+        listOf(Color(0xFF10B981), Color(0xFF14B8A6)),
+        listOf(Color(0xFFFBBF24), Color(0xFFF97316)),
+        listOf(Color(0xFFF43F5E), Color(0xFFEC4899)),
+    )
+    val colors = palettes[name.sumOf { it.code } % palettes.size]
+    Box(Modifier.size(size).background(androidx.compose.ui.graphics.Brush.linearGradient(colors), CircleShape), contentAlignment = Alignment.Center) {
+        Text(name.trim().take(1).uppercase().ifEmpty { "?" }, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+    }
+}
+
+/** The colorful header of a kid's page: who, how many minutes, and three small facts. */
+@Composable
+fun KidHero(name: String, grade: Int?, bank: Int, facts: List<Pair<String, String>>) {
+    Column(
+        Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Violet, Indigo, Sky)), RoundedCornerShape(28.dp)).padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            KidAvatar(name, 56.dp)
+            Column(Modifier.weight(1f)) {
+                Text(name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                if (grade != null) Text(gradeLabel(grade), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("$bank", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("min in the bank", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.85f))
+            }
+        }
+        if (facts.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                facts.forEach { (label, value) ->
+                    Column(
+                        Modifier.weight(1f).background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(16.dp)).padding(vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.85f))
+                        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A big tappable tile with an emoji, a title and one line of text. The main one is colored. */
+@Composable
+fun ActionTile(icon: String, title: String, text: String, modifier: Modifier = Modifier, primary: Boolean = false, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(20.dp)
+    val background = if (primary) Modifier.background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Violet, Indigo)), shape) else Modifier.background(Color.White, shape)
+    Column(
+        modifier.clip(shape).then(background).clickable(onClick = onClick).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(icon, style = MaterialTheme.typography.headlineMedium)
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (primary) Color.White else Color(0xFF0F172A))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = if (primary) Color.White.copy(alpha = 0.85f) else Color(0xFF64748B))
+    }
+}
+
+/** A row of pill tabs. The chosen one is filled with the brand color. */
+@Composable
+fun PillTabs(tabs: List<Triple<String, String, String>>, selected: String, onSelect: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(5.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        tabs.forEach { (id, icon, label) ->
+            val on = id == selected
+            val shape = RoundedCornerShape(16.dp)
+            Column(
+                Modifier.weight(1f).clip(shape)
+                    .then(if (on) Modifier.background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Violet, Indigo)), shape) else Modifier)
+                    .clickable { onSelect(id) }
+                    .padding(vertical = 9.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(icon, style = MaterialTheme.typography.titleMedium)
+                Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = if (on) Color.White else Color(0xFF475569))
             }
         }
     }
