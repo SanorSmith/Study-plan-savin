@@ -8,6 +8,7 @@ export type GradableQuestion = {
   type: "multiple_choice" | "numeric" | "short_text";
   options: string[] | null;
   answerKey: string;
+  label?: string | null; // the number printed on the worksheet
 };
 
 /** A page of a paper: a photo, or a PDF (the AI reads both). */
@@ -68,10 +69,10 @@ export type PaperResult = {
 };
 
 export function buildPrompt(questions: GradableQuestion[]): string {
-  const list = questions.map((q) => ({ id: q.id, text: q.text, type: q.type, options: q.options, expected: q.answerKey }));
+  const list = questions.map((q) => ({ id: q.id, paperNumber: q.label ?? undefined, text: q.text, type: q.type, options: q.options, expected: q.answerKey }));
   return `You are checking a child's handwritten answers on a school worksheet. The photos or PDF pages show the worksheet with the child's handwriting or typed answers.
 
-Questions and the expected answers (JSON):
+Questions and the expected answers (JSON). paperNumber, when present, is the number printed next to the question on the worksheet:
 ${JSON.stringify(list)}
 
 For EVERY question id above, return:

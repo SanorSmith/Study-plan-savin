@@ -10,9 +10,10 @@ type Q = {
   type: "multiple_choice" | "numeric" | "short_text";
   options: string[] | null;
   answerKey: string;
+  label: string; // the number on the paper, empty if none
 };
 
-type Extracted = Omit<Q, "answerKey"> & { suggestedAnswer: string };
+type Extracted = Omit<Q, "answerKey" | "label"> & { suggestedAnswer: string; number: string | null };
 
 const TYPE_LABEL: Record<Q["type"], string> = {
   multiple_choice: "Multiple choice",
@@ -41,6 +42,7 @@ export function HomeworkReview({ kidId, grade }: { kidId: string; grade: number 
           type: q.type,
           options: q.options,
           answerKey: q.suggestedAnswer,
+          label: q.number ?? "",
         })),
       );
     } catch (e) {
@@ -98,6 +100,16 @@ export function HomeworkReview({ kidId, grade }: { kidId: string; grade: number 
                     {i + 1}
                   </span>
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">{TYPE_LABEL[q.type]}</span>
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                    On the paper
+                    <input
+                      value={q.label}
+                      onChange={(e) => update(i, { label: e.target.value.slice(0, 20) })}
+                      aria-label={`Number on the paper for question ${i + 1}`}
+                      placeholder="3, 4b…"
+                      className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900"
+                    />
+                  </label>
                   <button type="button" className={`${btn.danger} ml-auto`} onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}>
                     Remove
                   </button>

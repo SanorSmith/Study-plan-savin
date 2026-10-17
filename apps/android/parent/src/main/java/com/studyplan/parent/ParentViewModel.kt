@@ -248,7 +248,7 @@ class ParentViewModel(app: Application) : AndroidViewModel(app) {
 
     fun openEditHomework(kidId: String, set: HomeworkInfo) {
         clearMessages()
-        drafts = set.questions.map { QuestionDraft(it.text, it.type, it.options, it.answerKey, true, it.id) }
+        drafts = set.questions.map { QuestionDraft(it.text, it.type, it.options, it.answerKey, true, it.id, it.label.orEmpty()) }
         screen = Screen.EditHomework(kidId, set.id)
     }
 

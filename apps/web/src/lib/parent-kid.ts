@@ -54,6 +54,7 @@ export async function kidDetail(kid: typeof kids.$inferSelect) {
       earnedMinutes: s.earnedMinutes,
       questions: s.questions.map((q) => ({
         id: q.id,
+        label: q.label,
         type: q.type,
         options: q.options,
         text: q.text,
@@ -68,7 +69,7 @@ export async function kidDetail(kid: typeof kids.$inferSelect) {
 }
 
 /** Saves a parent-confirmed answer key and assigns the set to the kid. */
-export async function assignHomeworkSet(kidId: string, input: z.infer<typeof HomeworkInput>, kind: "homework" | "practice" = "homework") {
+export async function assignHomeworkSet(kidId: string, input: z.input<typeof HomeworkInput>, kind: "homework" | "practice" = "homework") {
   const db = getDb();
   const [set] = await db.insert(homeworkSets).values({ kidId, subject: input.subject, status: "assigned", kind }).returning({ id: homeworkSets.id });
   await db.insert(questions).values(
@@ -78,6 +79,7 @@ export async function assignHomeworkSet(kidId: string, input: z.infer<typeof Hom
       type: q.type,
       options: q.type === "multiple_choice" ? q.options : null,
       answerKey: q.answerKey,
+      label: q.label ?? null,
       confirmed: true,
       position,
     })),
@@ -110,7 +112,7 @@ async function releaseQuestions(db: ReturnType<typeof getDb>, ids: string[]) {
  * questions without an id are added, and questions of the set that are missing from the list are removed.
  * Returns false if the set is not the kid's.
  */
-export async function updateHomeworkSet(kidId: string, setId: string, input: z.infer<typeof HomeworkInput>, ids: (string | null)[]) {
+export async function updateHomeworkSet(kidId: string, setId: string, input: z.input<typeof HomeworkInput>, ids: (string | null)[]) {
   const db = getDb();
   const [set] = await db.select({ id: homeworkSets.id }).from(homeworkSets).where(and(eq(homeworkSets.id, setId), eq(homeworkSets.kidId, kidId)));
   if (!set) return false;
@@ -123,7 +125,7 @@ export async function updateHomeworkSet(kidId: string, setId: string, input: z.i
 
   await db.update(homeworkSets).set({ subject: input.subject }).where(eq(homeworkSets.id, setId));
   for (const [position, q] of input.questions.entries()) {
-    const values = { text: q.text, type: q.type, options: q.type === "multiple_choice" ? q.options : null, answerKey: q.answerKey, position };
+    const values = { text: q.text, type: q.type, options: q.type === "multiple_choice" ? q.options : null, answerKey: q.answerKey, label: q.label ?? null, position };
     const id = ids[position];
     if (id && keep.has(id)) await db.update(questions).set(values).where(and(eq(questions.id, id), eq(questions.setId, setId)));
     else await db.insert(questions).values({ ...values, setId, confirmed: true });

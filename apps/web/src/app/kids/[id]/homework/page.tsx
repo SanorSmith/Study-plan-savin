@@ -98,6 +98,7 @@ async function Results({ params }: { params: Promise<{ id: string }> }) {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2 text-sm">
+                          {q.label && <span className="rounded-full bg-sky-50 px-3 py-1 font-semibold text-sky-900 ring-1 ring-sky-200">On the paper: {q.label}</span>}
                           <span className="rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-900 ring-1 ring-emerald-200">Answer: {q.answerKey}</span>
                           {q.earnedMinutes > 0 && <span className="rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-900">+{q.earnedMinutes} min</span>}
                         </div>

@@ -10,6 +10,7 @@ class ApiException(val status: Int, message: String) : Exception(message)
 
 data class Question(
     val id: String,
+    val label: String?, // the number printed next to the question on the worksheet
     val text: String,
     val type: String,
     val options: List<String>?,
@@ -118,6 +119,7 @@ object Api {
             question = q?.let {
                 Question(
                     id = it.getString("id"),
+                    label = if (it.isNull("label")) null else it.getString("label"),
                     text = it.getString("text"),
                     type = it.getString("type"),
                     options = it.optJSONArray("options")?.let { a -> List(a.length()) { i -> a.getString(i) } },

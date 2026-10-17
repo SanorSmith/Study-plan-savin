@@ -90,6 +90,7 @@ data class QuestionResultInfo(
     val tries: Int,
     val earnedMinutes: Int,
     val attempts: List<TryInfo> = emptyList(),
+    val label: String? = null, // the number on the paper
 )
 
 data class HomeworkInfo(val id: String, val subject: String, val kind: String, val createdAt: String, val solved: Int, val total: Int, val earnedMinutes: Int, val questions: List<QuestionResultInfo>)

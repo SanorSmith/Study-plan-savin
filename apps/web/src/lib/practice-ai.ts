@@ -3,7 +3,7 @@ import { z } from "zod";
 import { HomeworkInput, QuestionInput } from "@/lib/homework-input";
 import type { Stats } from "@/lib/performance";
 
-export type PracticeQuestion = z.infer<typeof QuestionInput>;
+export type PracticeQuestion = z.input<typeof QuestionInput>;
 export type PracticeSet = { subject: string; questions: PracticeQuestion[] };
 
 export class PracticeError extends Error {}

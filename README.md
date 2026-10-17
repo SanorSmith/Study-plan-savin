@@ -38,6 +38,7 @@ The kid web app does the homework, the paper photos and the age looks, but a web
 
 ## More for parents
 
+- **The numbers on the worksheet are kept.** When you make homework from a photo or PDF, the AI reads the number printed next to each question (3, 4b, Exercise 2) and keeps the questions in the sheet's order. The app numbers the questions 1, 2, 3 in that order and shows the paper's number next to it (kid app: "No. 4b"; results and editing: "On the paper: 4b"). You can change the numbers when you check the questions.
 - **PDF as well as photos.** Kids and parents can upload a PDF of a finished paper or a worksheet, and the AI reads it like a photo.
 - **Sound alerts.** The website rings when a kid sends a paper (and, with notifications turned on in the dashboard, also when it is closed). The Android parent app has instant sound alerts.
 - **Reply to the kid.** When you check a paper, the kid is told the score, the minutes and your message. You can also send a note any time.
